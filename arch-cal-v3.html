@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Arch·Cal v3.0</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
@@ -144,17 +145,21 @@ body{
 .mini-day{
   aspect-ratio:1;font-size:9px;display:flex;align-items:center;justify-content:center;
   border-radius:4px;cursor:pointer;color:var(--text-mid);font-weight:500;
-  transition:all 0.12s;position:relative;
+  transition:all 0.12s;position:relative;flex-direction:column;gap:1px;padding-bottom:5px;
 }
 .mini-day:hover{background:rgba(255,255,255,0.07);color:var(--text);}
 .mini-day.today{background:var(--accent);color:#000;font-weight:700;}
 .mini-day.selected{background:rgba(255,255,255,0.12);color:var(--text);}
-.mini-day.has-event::after{
-  content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
-  width:3px;height:3px;border-radius:50%;background:var(--accent);
-}
+.mini-day.has-event::after{ display:none; }
 .mini-day.today.has-event::after{background:#000;}
 .mini-day.other-month{color:var(--text-dim);}
+.mini-event-dots{
+  display:flex;gap:2px;justify-content:center;flex-wrap:wrap;
+  position:absolute;bottom:2px;left:50%;transform:translateX(-50%);max-width:20px;
+}
+.mini-event-dot{
+  width:3px;height:3px;border-radius:50%;flex-shrink:0;
+}
 
 /* Tags */
 .tag-list{display:flex;flex-direction:column;gap:5px;}
@@ -299,21 +304,71 @@ body{
 .week-event{
   position:absolute;left:3px;right:3px;border-radius:var(--r-sm);
   padding:4px 7px;font-size:10px;font-weight:700;overflow:hidden;
-  cursor:pointer;z-index:2;border-left:2.5px solid;
-  transition:filter 0.15s,transform 0.1s;
+  cursor:grab;z-index:2;border-left:2.5px solid;
+  transition:filter 0.15s,box-shadow 0.1s;
 }
-.week-event:hover{filter:brightness(1.2);transform:scaleX(1.01);}
+.week-event:hover{filter:brightness(1.2);}
+.week-event.dragging{cursor:grabbing;opacity:0.85;box-shadow:0 4px 20px rgba(0,0,0,0.5);z-index:10;}
+.week-event-resize{
+  position:absolute;bottom:0;left:0;right:0;height:6px;
+  cursor:ns-resize;z-index:3;
+}
+.week-event-resize:hover::after{
+  content:'';position:absolute;bottom:1px;left:50%;transform:translateX(-50%);
+  width:20px;height:2px;background:rgba(255,255,255,0.5);border-radius:1px;
+}
+
+/* All-day row */
+.allday-row{
+  display:grid;grid-template-columns:52px repeat(7,1fr);
+  border-bottom:1px solid var(--ui-border);min-height:28px;
+  flex-shrink:0;
+}
+.allday-label{
+  border-right:1px solid var(--ui-border);font-size:8px;
+  color:var(--text-dim);display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);letter-spacing:0.5px;
+}
+.allday-cell{
+  border-right:1px solid rgba(255,255,255,0.04);padding:3px 4px;
+  display:flex;flex-direction:column;gap:2px;min-height:28px;
+}
+.allday-cell:last-child{border-right:none;}
+.allday-chip{
+  font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;
+  border-left:2px solid;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  cursor:pointer;transition:filter 0.12s;display:flex;align-items:center;gap:4px;
+}
+.allday-chip:hover{filter:brightness(1.2);}
+.allday-chip .allday-check{
+  width:10px;height:10px;border:1.5px solid currentColor;border-radius:2px;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:7px;
+}
+/* Day view all-day */
+.day-allday-row{
+  display:grid;grid-template-columns:52px 1fr;
+  border-bottom:1px solid var(--ui-border);min-height:28px;flex-shrink:0;
+}
+.day-event{
+  position:absolute;left:8px;right:8px;border-radius:var(--r-md);
+  padding:8px 12px;font-size:11px;font-weight:700;overflow:hidden;
+  cursor:grab;border-left:3px solid;transition:filter 0.15s,box-shadow 0.1s;
+}
+.day-event:hover{filter:brightness(1.2);}
+.day-event.dragging{cursor:grabbing;opacity:0.85;box-shadow:0 4px 20px rgba(0,0,0,0.5);z-index:10;}
+.day-event-resize{
+  position:absolute;bottom:0;left:0;right:0;height:8px;cursor:ns-resize;z-index:3;
+}
+.day-event-resize:hover::after{
+  content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
+  width:24px;height:2px;background:rgba(255,255,255,0.5);border-radius:1px;
+}
 
 /* Day view */
 .day-container{flex:1;overflow-y:auto;display:grid;grid-template-columns:52px 1fr;}
 .day-container::-webkit-scrollbar{width:4px;}
 .day-container::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);}
 .day-col{position:relative;}
-.day-event{
-  position:absolute;left:8px;right:8px;border-radius:var(--r-md);
-  padding:8px 12px;font-size:11px;font-weight:700;overflow:hidden;
-  cursor:pointer;border-left:3px solid;
-}
 
 /* ══ DETAIL PANEL ══ */
 .detail-panel{
@@ -406,6 +461,12 @@ textarea.dp-input{resize:vertical;min-height:70px;line-height:1.6;}
   z-index:500;backdrop-filter:blur(4px);
 }
 .overlay.show{display:flex;}
+.gcal-event-item{
+  padding:10px 12px;border-radius:8px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--ui-border);
+  border-left:2px solid;transition:background 0.15s;
+}
+.gcal-event-item:hover{background:rgba(255,255,255,0.05);}
 .modal{
   background:var(--ui-bg2);border:1px solid var(--ui-border2);
   border-radius:var(--r-lg);width:480px;max-height:80vh;
@@ -627,6 +688,8 @@ textarea.dp-input{resize:vertical;min-height:70px;line-height:1.6;}
   </div>
   <div class="spacer"></div>
   <button class="tb" onclick="openExportModal()" style="color:var(--link);border-color:rgba(0,204,255,0.2);">📤 내보내기</button>
+  <div class="sep"></div>
+  <button class="tb" id="gcal-btn" onclick="gcalAuth()" style="color:#4285f4;border-color:rgba(66,133,244,0.25);">🗓 Google 연동</button>
   <div class="sep"></div>
   <div class="vault-status" id="vault-status" onclick="openVaultModal()">
     <div class="vs-dot"></div>
@@ -1422,9 +1485,46 @@ function renderMiniCal() {
     el.textContent = d2;
     if (ds === today) el.classList.add('today');
     if (state.selectedDate === ds) el.classList.add('selected');
-    const hasEv = state.events.some(e => e.date === ds);
-    if (hasEv) el.classList.add('has-event');
-    el.onclick = () => { state.selectedDate = ds; renderAll(); };
+
+    // 해당 날짜 일정들의 태그 색 수집 (최대 3개)
+    const dayEvents = state.events.filter(e => e.date === ds || e.dueDate === ds);
+    if (dayEvents.length > 0) {
+      el.classList.add('has-event');
+      const dots = document.createElement('div');
+      dots.className = 'mini-event-dots';
+      // 중복 색상 제거, 최대 3개
+      const colors = [];
+      dayEvents.forEach(ev => {
+        const tag = getFirstTag(ev);
+        const color = tag ? tag.color : 'var(--accent)';
+        if (!colors.includes(color)) colors.push(color);
+      });
+      colors.slice(0, 3).forEach(color => {
+        const dot = document.createElement('div');
+        dot.className = 'mini-event-dot';
+        // today는 배경이 accent라 도트가 안 보이므로 흰색 처리
+        dot.style.background = ds === today ? '#000' : color;
+        dots.appendChild(dot);
+      });
+      el.appendChild(dots);
+    }
+
+    el.onclick = () => {
+      state.selectedDate = ds;
+      // 현재 뷰에 맞게 메인 달력 이동
+      const clickedDate = new Date(y, m, d2);
+      if (state.view === 'month') {
+        // 해당 월로 이동
+        state.currentDate = new Date(y, m, 1);
+      } else if (state.view === 'week') {
+        // 해당 주로 이동 (클릭한 날짜가 속한 주)
+        state.currentDate = clickedDate;
+      } else {
+        // 일 뷰: 해당 날로 이동
+        state.currentDate = clickedDate;
+      }
+      renderAll();
+    };
     grid.appendChild(el);
   }
 }
@@ -1632,8 +1732,10 @@ function renderWeekView(container, weekStart) {
   hdrs.appendChild(timePad);
   const today = toDateStr(new Date());
   const days = ['일','월','화','수','목','금','토'];
+  const weekDates = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(weekStart); d.setDate(d.getDate() + i);
+    weekDates.push(d);
     const ds = toDateStr(d);
     const hdr = document.createElement('div');
     hdr.className = 'week-day-hdr' + (ds === today ? ' today-col' : '');
@@ -1641,6 +1743,32 @@ function renderWeekView(container, weekStart) {
     hdrs.appendChild(hdr);
   }
   wc.appendChild(hdrs);
+
+  // All-day row (시간 없는 일정)
+  const alldayRow = document.createElement('div');
+  alldayRow.className = 'allday-row';
+  const alldayLabel = document.createElement('div');
+  alldayLabel.className = 'allday-label'; alldayLabel.textContent = '종일';
+  alldayRow.appendChild(alldayLabel);
+  let hasAllday = false;
+  weekDates.forEach(d => {
+    const ds = toDateStr(d);
+    const cell = document.createElement('div'); cell.className = 'allday-cell';
+    const noTimeEvs = getEventsForDate(ds).filter(e => !e.startTime && !e.isTodo);
+    const todoEvs = state.events.filter(e => e.isTodo && e.dueDate === ds);
+    [...noTimeEvs, ...todoEvs].forEach(ev => {
+      hasAllday = true;
+      const tag = getFirstTag(ev); const color = tag ? tag.color : 'var(--text-mid)';
+      const chip = document.createElement('div');
+      chip.className = 'allday-chip';
+      chip.style.cssText = `border-left-color:${color};background:${hexToRgba(color,0.12)};color:${color};`;
+      chip.innerHTML = `<div class="allday-check">${ev.isTodo ? '' : ''}</div><span style="overflow:hidden;text-overflow:ellipsis;">${esc(ev.title)}</span>`;
+      chip.onclick = () => openDetailPanel(ev.id);
+      cell.appendChild(chip);
+    });
+    alldayRow.appendChild(cell);
+  });
+  if (hasAllday || true) wc.appendChild(alldayRow); // always show
 
   // Scrollable grid
   const scroll = document.createElement('div');
@@ -1658,7 +1786,7 @@ function renderWeekView(container, weekStart) {
   scroll.appendChild(timeCol);
 
   for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart); d.setDate(d.getDate() + i);
+    const d = weekDates[i];
     const ds = toDateStr(d);
     const col = document.createElement('div');
     col.className = 'week-day-col';
@@ -1666,40 +1794,54 @@ function renderWeekView(container, weekStart) {
       const slot = document.createElement('div');
       slot.className = 'hour-slot';
       slot.onclick = () => {
-        const dateStr = ds;
         const hh = String(h).padStart(2,'0');
-        openNewEventModalWithDate(dateStr, `${hh}:00`, `${String(h+1).padStart(2,'0')}:00`);
+        openNewEventModalWithDate(ds, `${hh}:00`, `${String(h+1).padStart(2,'0')}:00`);
       };
       col.appendChild(slot);
     }
-    const evs = getEventsForDate(ds);
+    const evs = getEventsForDate(ds).filter(e => e.startTime);
     evs.forEach(ev => {
-      if (!ev.startTime) return;
-      const [sh, sm] = ev.startTime.split(':').map(Number);
-      const [eh, em] = (ev.endTime || ev.startTime).split(':').map(Number);
-      const top = (sh + sm/60) / 24 * 100;
-      const height = Math.max(2, ((eh + em/60) - (sh + sm/60)) / 24 * 100);
-      const tag = getFirstTag(ev);
-      const color = tag ? tag.color : 'var(--text-mid)';
-      const block = document.createElement('div');
-      block.className = 'week-event';
-      block.style.cssText = `top:${top}%;height:${height}%;border-left-color:${color};background:${hexToRgba(color,0.12)};color:${color};`;
-      block.innerHTML = `<div>${esc(ev.title)}</div><div style="font-size:8px;opacity:0.7;font-family:var(--mono)">${ev.startTime}${ev.endTime?'–'+ev.endTime:''}</div>`;
-      block.onclick = (e) => { e.stopPropagation(); openDetailPanel(ev.id); };
+      const block = createTimeBlock(ev, col, 'week', scroll);
       col.appendChild(block);
     });
     scroll.appendChild(col);
   }
   wc.appendChild(scroll);
   container.appendChild(wc);
-
-  // Scroll to 8am
   setTimeout(() => { scroll.scrollTop = 56 * 8; }, 50);
 }
 
 /* ─── DAY ─── */
 function renderDayView(container, date) {
   const ds = toDateStr(date);
+  const outer = document.createElement('div');
+  outer.style.cssText = 'display:flex;flex-direction:column;flex:1;overflow:hidden;';
+
+  // All-day row
+  const alldayRow = document.createElement('div');
+  alldayRow.className = 'day-allday-row';
+  const alLabel = document.createElement('div');
+  alLabel.className = 'allday-label'; alLabel.textContent = '종일';
+  alldayRow.appendChild(alLabel);
+  const alCell = document.createElement('div');
+  alCell.className = 'allday-cell';
+  alCell.style.cssText = 'border-right:none;';
+  const noTimeEvs = getEventsForDate(ds).filter(e => !e.startTime && !e.isTodo);
+  const todoEvs = state.events.filter(e => e.isTodo && e.dueDate === ds);
+  [...noTimeEvs, ...todoEvs].forEach(ev => {
+    const tag = getFirstTag(ev); const color = tag ? tag.color : 'var(--text-mid)';
+    const chip = document.createElement('div');
+    chip.className = 'allday-chip';
+    chip.style.cssText = `border-left-color:${color};background:${hexToRgba(color,0.12)};color:${color};`;
+    const checked = ev.completed ? '✓' : '';
+    chip.innerHTML = `<div class="allday-check">${checked}</div><span>${esc(ev.title)}</span>`;
+    chip.onclick = () => openDetailPanel(ev.id);
+    alCell.appendChild(chip);
+  });
+  alldayRow.appendChild(alCell);
+  outer.appendChild(alldayRow);
+
+  // Timed grid
   const dc = document.createElement('div');
   dc.className = 'day-container';
 
@@ -1719,24 +1861,146 @@ function renderDayView(container, date) {
     slot.onclick = () => openNewEventModalWithDate(ds, `${String(h).padStart(2,'0')}:00`, `${String(h+1).padStart(2,'0')}:00`);
     col.appendChild(slot);
   }
-  getEventsForDate(ds).forEach(ev => {
-    if (!ev.startTime) return;
-    const [sh, sm] = ev.startTime.split(':').map(Number);
-    const [eh, em] = (ev.endTime || ev.startTime).split(':').map(Number);
-    const top = (sh + sm/60) / 24 * 100;
-    const height = Math.max(2, ((eh + em/60) - (sh + sm/60)) / 24 * 100);
-    const tag = getFirstTag(ev);
-    const color = tag ? tag.color : 'var(--text-mid)';
-    const block = document.createElement('div');
-    block.className = 'day-event';
-    block.style.cssText = `top:${top}%;height:${height}%;border-left-color:${color};background:${hexToRgba(color,0.12)};color:${color};`;
-    block.innerHTML = `<div style="font-size:12px">${esc(ev.title)}</div><div style="font-size:10px;opacity:0.7;font-family:var(--mono)">${ev.startTime}${ev.endTime?'–'+ev.endTime:''}</div>`;
-    block.onclick = (e) => { e.stopPropagation(); openDetailPanel(ev.id); };
+  getEventsForDate(ds).filter(e => e.startTime).forEach(ev => {
+    const block = createTimeBlock(ev, col, 'day', dc);
     col.appendChild(block);
   });
   dc.appendChild(col);
-  container.appendChild(dc);
+  outer.appendChild(dc);
+  container.appendChild(outer);
   setTimeout(() => { dc.scrollTop = 56 * 8; }, 50);
+}
+
+/* ─── createTimeBlock: 드래그 이동 + 하단 드래그 리사이즈 ─── */
+function createTimeBlock(ev, col, viewType, scrollEl) {
+  const TOTAL_H = 24 * 56; // 24h * 56px per hour
+
+  function timeToPx(timeStr) {
+    const [h, m] = timeStr.split(':').map(Number);
+    return (h + m / 60) * 56;
+  }
+  function pxToTime(px) {
+    const totalMin = Math.round(px / 56 * 60 / 15) * 15; // 15분 스냅
+    const h = Math.max(0, Math.min(23, Math.floor(totalMin / 60)));
+    const m = Math.max(0, Math.min(59, totalMin % 60));
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  const tag = getFirstTag(ev);
+  const color = tag ? tag.color : 'var(--text-mid)';
+  const [sh, sm] = ev.startTime.split(':').map(Number);
+  const [eh, em] = (ev.endTime || ev.startTime).split(':').map(Number);
+  const topPx = (sh + sm / 60) * 56;
+  const durMin = Math.max(15, (eh * 60 + em) - (sh * 60 + sm));
+  const heightPx = Math.max(22, durMin / 60 * 56);
+
+  const block = document.createElement('div');
+  block.className = viewType === 'week' ? 'week-event' : 'day-event';
+  block.style.cssText = `top:${topPx}px;height:${heightPx}px;position:absolute;border-left-color:${color};background:${hexToRgba(color,0.15)};color:${color};`;
+
+  const titleEl = document.createElement('div');
+  titleEl.textContent = ev.title;
+  const timeEl = document.createElement('div');
+  timeEl.style.cssText = 'font-size:9px;opacity:0.7;font-family:var(--mono);margin-top:2px;';
+  timeEl.textContent = ev.startTime + (ev.endTime ? '–' + ev.endTime : '');
+  block.appendChild(titleEl);
+  block.appendChild(timeEl);
+
+  // 리사이즈 핸들 (하단)
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = viewType === 'week' ? 'week-event-resize' : 'day-event-resize';
+  block.appendChild(resizeHandle);
+
+  let clickStartTime = 0;
+  let didDrag = false;
+
+  // ── 이동 드래그 ──
+  block.addEventListener('mousedown', (e) => {
+    if (e.target === resizeHandle) return;
+    e.stopPropagation();
+    clickStartTime = Date.now();
+    didDrag = false;
+
+    const colRect = col.getBoundingClientRect();
+    const startMouseY = e.clientY;
+    const startTop = parseInt(block.style.top);
+    const blockH = parseInt(block.style.height);
+
+    const onMove = (me) => {
+      const dy = me.clientY - startMouseY;
+      if (Math.abs(dy) > 4) { didDrag = true; block.classList.add('dragging'); }
+      if (!didDrag) return;
+
+      const rawTop = startTop + dy;
+      const snapped = Math.round(rawTop / 14) * 14; // 15분 = 14px 스냅
+      const newTop = Math.max(0, Math.min(TOTAL_H - blockH, snapped));
+      block.style.top = newTop + 'px';
+      const newTime = pxToTime(newTop);
+      const endMin = parseInt(newTime.split(':')[0]) * 60 + parseInt(newTime.split(':')[1]) + durMin;
+      const endTime = `${String(Math.floor(endMin/60)%24).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+      timeEl.textContent = newTime + '–' + endTime;
+    };
+
+    const onUp = (me) => {
+      document.removeEventListener('mousemove', onMove);
+      block.classList.remove('dragging');
+
+      if (!didDrag) {
+        // 클릭 → 패널 열기
+        openDetailPanel(ev.id);
+        return;
+      }
+
+      // 저장
+      const newTop = parseInt(block.style.top);
+      const newStart = pxToTime(newTop);
+      const [nsh, nsm] = newStart.split(':').map(Number);
+      const endMin = nsh * 60 + nsm + durMin;
+      const newEnd = `${String(Math.floor(endMin/60)%24).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+      ev.startTime = newStart;
+      ev.endTime = newEnd;
+      save();
+      showToast(`${ev.title}: ${newStart}–${newEnd}`);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp, { once: true });
+  });
+
+  // ── 리사이즈 (하단 핸들) ──
+  resizeHandle.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    const startMouseY = e.clientY;
+    const startH = parseInt(block.style.height);
+    const topPxNow = parseInt(block.style.top);
+
+    const onMove = (me) => {
+      const dy = me.clientY - startMouseY;
+      const rawH = startH + dy;
+      const snapped = Math.round(rawH / 14) * 14;
+      const newH = Math.max(22, Math.min(TOTAL_H - topPxNow, snapped));
+      block.style.height = newH + 'px';
+      const [csh, csm] = ev.startTime.split(':').map(Number);
+      const endMin = csh * 60 + csm + Math.round(newH / 56 * 60 / 15) * 15;
+      const endTime = `${String(Math.floor(endMin/60)%24).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+      timeEl.textContent = ev.startTime + '–' + endTime;
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      const newH = parseInt(block.style.height);
+      const [csh, csm] = ev.startTime.split(':').map(Number);
+      const endMin = csh * 60 + csm + Math.round(newH / 56 * 60 / 15) * 15;
+      ev.endTime = `${String(Math.floor(endMin/60)%24).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}`;
+      save();
+      showToast(`${ev.title}: ${ev.startTime}–${ev.endTime}`);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp, { once: true });
+  });
+
+  return block;
 }
 
 /* ═══════════════════════════════════════
@@ -1811,6 +2075,35 @@ function openDetailPanel(eventId) {
   const delBtn = document.createElement('button');
   delBtn.className = 'tb danger'; delBtn.textContent = '🗑️';
   delBtn.onclick = () => deleteEvent(ev.id);
+
+  // 참석자 섹션
+  const attendeeSection = document.createElement('div');
+  attendeeSection.style.cssText = 'margin-bottom:8px;';
+  attendeeSection.innerHTML = `
+    <div style="font-size:9px;color:var(--text-dim);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">참석자 (초대 이메일 자동 발송)</div>
+    <div style="display:flex;gap:6px;">
+      <input id="dp-attendee-input" type="email" placeholder="이메일 입력 후 Enter..."
+        style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--ui-border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:11px;outline:none;font-family:var(--font);"
+        onkeydown="if(event.key==='Enter'){addAttendee('${ev.id}',this.value);this.value='';}">
+      <button onclick="addAttendee('${ev.id}',document.getElementById('dp-attendee-input').value);document.getElementById('dp-attendee-input').value='';"
+        style="padding:6px 10px;background:rgba(66,133,244,0.15);color:#4285f4;border:1px solid rgba(66,133,244,0.25);border-radius:6px;cursor:pointer;font-size:11px;font-family:var(--font);">추가</button>
+    </div>
+    <div id="dp-attendee-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">
+      ${(ev.attendees||[]).map(email => `
+        <span style="background:rgba(66,133,244,0.12);color:#4285f4;border:1px solid rgba(66,133,244,0.2);border-radius:12px;padding:2px 8px;font-size:10px;display:flex;align-items:center;gap:4px;">
+          ${esc(email)}
+          <span onclick="removeAttendee('${ev.id}','${esc(email)}')" style="cursor:pointer;opacity:0.7;font-size:11px;">✕</span>
+        </span>`).join('')}
+    </div>`;
+
+  // Google 동기화 버튼
+  const gcalSyncBtn = document.createElement('button');
+  gcalSyncBtn.style.cssText = 'width:100%;padding:7px;background:rgba(66,133,244,0.12);color:#4285f4;border:1px solid rgba(66,133,244,0.2);border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;font-family:var(--font);margin-bottom:6px;';
+  gcalSyncBtn.textContent = ev.gcalId ? '🔄 Google Calendar 재동기화' : '📤 Google Calendar에 전송';
+  gcalSyncBtn.onclick = () => syncOneEvent(ev.id);
+
+  footer.appendChild(attendeeSection);
+  footer.appendChild(gcalSyncBtn);
   footer.appendChild(saveBtn);
   const row2 = document.createElement('div');
   row2.style.cssText = 'display:flex;gap:6px;margin-top:6px;';
@@ -2083,6 +2376,10 @@ function saveEvent() {
     note: document.getElementById('ev-note').value.trim(),
     files: [...tempFiles],
     createdAt: editingEventId ? (state.events.find(e => e.id === editingEventId)?.createdAt || Date.now()) : Date.now(),
+    // Google Calendar 연동 필드 보존
+    gcalId: editingEventId ? (state.events.find(e => e.id === editingEventId)?.gcalId || null) : null,
+    attendees: editingEventId ? (state.events.find(e => e.id === editingEventId)?.attendees || []) : [],
+    reminderMin: editingEventId ? (state.events.find(e => e.id === editingEventId)?.reminderMin ?? 30) : 30,
   };
   if (editingEventId) {
     const idx = state.events.findIndex(e => e.id === editingEventId);
@@ -2100,6 +2397,8 @@ function saveEvent() {
   closeModal('modal-event');
   toast(editingEventId ? '일정이 수정됐어요' : `"${title}" 저장됨`);
   openDetailPanel(ev.id);
+  // Google Calendar 자동 동기화
+  gcalAutoSync(ev.id);
 }
 
 function deleteEvent(id) {
@@ -2768,6 +3067,226 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') calNav(-1);
   if (e.key === 'ArrowRight') calNav(1);
 });
+
+/* ── 참석자 관리 ── */
+function addAttendee(evId, email) {
+  email = email.trim();
+  if (!email || !email.includes('@')) { showToast('올바른 이메일을 입력하세요'); return; }
+  const ev = state.events.find(e => e.id === evId);
+  if (!ev) return;
+  ev.attendees = ev.attendees || [];
+  if (ev.attendees.includes(email)) { showToast('이미 추가된 참석자입니다'); return; }
+  ev.attendees.push(email);
+  save();
+  openDetailPanel(evId); // 패널 재렌더
+  showToast(`✅ ${email} 추가됨`);
+}
+
+function removeAttendee(evId, email) {
+  const ev = state.events.find(e => e.id === evId);
+  if (!ev) return;
+  ev.attendees = (ev.attendees || []).filter(e => e !== email);
+  save();
+  openDetailPanel(evId);
+  showToast(`${email} 제거됨`);
+}
+
+/* ═══════════════════════════════════════
+   GOOGLE CALENDAR 연동
+═══════════════════════════════════════ */
+const GCAL_CLIENT_ID = '884706813135-cs99f31f956q5qjq7lb61ge5ss3tmbhl.apps.googleusercontent.com';
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+let gcalToken = null;
+let gcalConnected = false;
+
+// 구글 로그인 / 토큰 요청
+function gcalAuth() {
+  if (gcalConnected) { openGcalPanel(); return; }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GCAL_CLIENT_ID,
+    scope: GCAL_SCOPE,
+    callback: (resp) => {
+      if (resp.error) { showToast('Google 로그인 실패: ' + resp.error); return; }
+      gcalToken = resp.access_token;
+      gcalConnected = true;
+      updateGcalBtn();
+      showToast('✅ Google Calendar 연결됨!');
+      openGcalPanel();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function updateGcalBtn() {
+  const btn = document.getElementById('gcal-btn');
+  if (!btn) return;
+  if (gcalConnected) {
+    btn.textContent = '✅ Google 연동됨';
+    btn.style.color = 'var(--accent)';
+    btn.style.borderColor = 'rgba(0,255,136,0.25)';
+  } else {
+    btn.textContent = '🗓 Google 연동';
+    btn.style.color = '#4285f4';
+    btn.style.borderColor = 'rgba(66,133,244,0.25)';
+  }
+}
+
+// ── Google Calendar 패널 ──
+function openGcalPanel() {
+  document.getElementById('gcal-panel').classList.add('show');
+  renderGcalPanel();
+}
+function closeGcalPanel() {
+  document.getElementById('gcal-panel').classList.remove('show');
+}
+
+function renderGcalPanel() {
+  const list = document.getElementById('gcal-event-list');
+  const upcoming = state.events
+    .filter(e => !e.isTodo && e.date >= toDateStr(new Date()))
+    .sort((a,b) => a.date.localeCompare(b.date))
+    .slice(0, 20);
+
+  if (upcoming.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px;">예정된 일정이 없습니다</div>';
+    return;
+  }
+
+  list.innerHTML = upcoming.map(ev => {
+    const tag = getFirstTag(ev);
+    const color = tag ? tag.color : 'var(--text-mid)';
+    const synced = ev.gcalId ? '✅' : '';
+    return `
+      <div class="gcal-event-item" style="border-left:2px solid ${color};">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:12px;font-weight:700;color:${color};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ev.title)}</span>
+          <span style="font-size:10px;color:var(--text-dim);flex-shrink:0;">${synced}</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:3px;font-family:var(--mono);">
+          ${ev.date}${ev.startTime ? ' · ' + ev.startTime : ''}
+        </div>
+        ${(ev.attendees||[]).length > 0 ? `<div style="font-size:9px;color:var(--moc);margin-top:2px;">👥 ${ev.attendees.join(', ')}</div>` : ''}
+        <button onclick="syncOneEvent('${ev.id}')" style="margin-top:6px;font-size:9px;padding:3px 8px;background:rgba(66,133,244,0.12);color:#4285f4;border:1px solid rgba(66,133,244,0.2);border-radius:4px;cursor:pointer;font-family:var(--font);">
+          ${ev.gcalId ? '🔄 재동기화' : '📤 Google에 전송'}
+        </button>
+      </div>`;
+  }).join('');
+}
+
+// ── 일정 하나 동기화 ──
+async function syncOneEvent(evId) {
+  if (!gcalConnected) { gcalAuth(); return; }
+  const ev = state.events.find(e => e.id === evId);
+  if (!ev) return;
+
+  const body = buildGcalBody(ev);
+  try {
+    let url, method;
+    if (ev.gcalId) {
+      url = `https://www.googleapis.com/calendar/v3/calendars/primary/events/${ev.gcalId}`;
+      method = 'PUT';
+    } else {
+      url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+      method = 'POST';
+    }
+
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + gcalToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      if (err.error?.status === 'UNAUTHENTICATED') { gcalToken = null; gcalConnected = false; updateGcalBtn(); gcalAuth(); return; }
+      throw new Error(err.error?.message || res.status);
+    }
+
+    const data = await res.json();
+    ev.gcalId = data.id;
+    save();
+    renderGcalPanel();
+    showToast(`✅ "${ev.title}" Google Calendar에 전송됨`);
+  } catch(e) {
+    showToast('❌ 동기화 실패: ' + e.message);
+  }
+}
+
+// ── 전체 동기화 ──
+async function syncAllEvents() {
+  if (!gcalConnected) { gcalAuth(); return; }
+  const toSync = state.events.filter(e => !e.isTodo && e.date >= toDateStr(new Date()));
+  let ok = 0;
+  for (const ev of toSync) {
+    try { await syncOneEvent(ev.id); ok++; } catch(e) {}
+  }
+  showToast(`✅ ${ok}개 일정 동기화 완료`);
+}
+
+// ── Google Calendar 이벤트 바디 빌더 ──
+function buildGcalBody(ev) {
+  const attendeeList = (ev.attendees || []).map(email => ({ email }));
+  const reminders = {
+    useDefault: false,
+    overrides: [
+      { method: 'popup', minutes: ev.reminderMin ?? 30 },
+      { method: 'email', minutes: ev.reminderMin ?? 30 }
+    ]
+  };
+
+  let start, end;
+  if (ev.startTime) {
+    start = { dateTime: `${ev.date}T${ev.startTime}:00+09:00`, timeZone: 'Asia/Seoul' };
+    end   = { dateTime: `${ev.date}T${ev.endTime || ev.startTime}:00+09:00`, timeZone: 'Asia/Seoul' };
+  } else {
+    start = { date: ev.date };
+    end   = { date: ev.date };
+  }
+
+  return {
+    summary: ev.title,
+    description: ev.note || '',
+    start, end,
+    attendees: attendeeList,
+    reminders,
+    guestsCanModify: false,
+    guestsCanInviteOthers: false,
+    sendUpdates: attendeeList.length > 0 ? 'all' : 'none'
+  };
+}
+
+// ── 일정 저장 시 자동 동기화 (선택) ──
+function gcalAutoSync(evId) {
+  if (!gcalConnected) return;
+  const ev = state.events.find(e => e.id === evId);
+  if (ev && !ev.isTodo) syncOneEvent(evId);
+}
+
 </script>
+<!-- GOOGLE CALENDAR 패널 -->
+<div class="overlay" id="gcal-panel">
+  <div class="modal" style="width:480px;max-height:80vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">🗓</span>
+        <span>Google Calendar 동기화</span>
+      </div>
+      <button class="modal-close" onclick="closeGcalPanel()">✕</button>
+    </div>
+    <div style="padding:16px 20px;border-bottom:1px solid var(--ui-border);display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="syncAllEvents()" style="padding:8px 16px;background:rgba(66,133,244,0.15);color:#4285f4;border:1px solid rgba(66,133,244,0.3);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:var(--font);">
+        🔄 전체 동기화
+      </button>
+      <div style="font-size:11px;color:var(--text-dim);display:flex;align-items:center;">
+        오늘 이후 일정 • 참석자 추가 → 자동 초대 이메일 발송
+      </div>
+    </div>
+    <div id="gcal-event-list" style="flex:1;overflow-y:auto;padding:12px 20px;display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
 </body>
 </html>
