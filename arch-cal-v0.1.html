@@ -5093,6 +5093,16 @@ function renderSettingsBody() {
   });
   html += '</div>';
 
+  // 데이터 내보내기/가져오기
+  html += '<div class="settings-group"><div class="settings-group-title">💾 데이터 관리</div>';
+  html += '<div style="font-size:10px;color:var(--text-dim);margin-bottom:8px;">다른 브라우저/기기로 이동하거나 백업할 때 사용</div>';
+  html += '<div style="display:flex;gap:6px;">';
+  html += '<button class="settings-key" onclick="exportAppData()" style="flex:1;min-width:auto;">📤 데이터 내보내기</button>';
+  html += '<button class="settings-key" onclick="document.getElementById(\'import-data-input\').click()" style="flex:1;min-width:auto;">📥 데이터 가져오기</button>';
+  html += '</div>';
+  html += '<input type="file" id="import-data-input" accept=".json" style="display:none" onchange="importAppData(event)">';
+  html += '</div>';
+
   // 정보
   html += '<div class="settings-group"><div class="settings-group-title">정보</div>';
   html += '<div class="settings-row"><span class="settings-label">버전</span><span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);">Arch·Cal v3.4</span></div>';
@@ -5100,6 +5110,69 @@ function renderSettingsBody() {
   html += '<div class="settings-row"><span class="settings-label">태그 수</span><span style="font-size:10px;color:var(--text-dim);font-family:var(--mono);">' + state.tags.length + '개</span></div>';
   html += '</div></div>';
   body.innerHTML = html;
+}
+
+function exportAppData() {
+  var data = {
+    _archCal: true,
+    _version: '3.4',
+    _exportedAt: new Date().toISOString(),
+    events: state.events,
+    todos: state.todos,
+    tags: state.tags,
+    tagFolders: state.tagFolders,
+    trash: state.trash,
+    nextId: state.nextId,
+    icalUrl: localStorage.getItem(ICAL_STORAGE_KEY) || '',
+    icalLastSync: localStorage.getItem(ICAL_LAST_SYNC_KEY) || '',
+    gcalAuto: localStorage.getItem('arch-cal-gcal-auto') || '',
+    monoFont: localStorage.getItem('arch-cal-mono-font') || '',
+  };
+  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'arch-cal-backup-' + toDateStr(new Date()) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('📤 데이터 내보내기 완료');
+}
+
+function importAppData(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var data = JSON.parse(ev.target.result);
+      if (!data._archCal) { toast('올바른 Arch·Cal 백업 파일이 아닙니다'); return; }
+      if (!confirm('현재 데이터를 덮어쓸까요?\n\n가져올 데이터: 일정 ' + (data.events||[]).length + '개, 태그 ' + (data.tags||[]).length + '개\n내보낸 날짜: ' + (data._exportedAt || '알 수 없음'))) return;
+
+      state.events = data.events || [];
+      state.todos = data.todos || [];
+      state.tags = data.tags || [];
+      state.tagFolders = data.tagFolders || [];
+      state.trash = data.trash || [];
+      state.nextId = data.nextId || 1;
+
+      if (data.icalUrl) localStorage.setItem(ICAL_STORAGE_KEY, data.icalUrl);
+      if (data.icalLastSync) localStorage.setItem(ICAL_LAST_SYNC_KEY, data.icalLastSync);
+      if (data.gcalAuto) localStorage.setItem('arch-cal-gcal-auto', data.gcalAuto);
+      if (data.monoFont) {
+        localStorage.setItem('arch-cal-mono-font', data.monoFont);
+        document.documentElement.style.setProperty('--mono', data.monoFont);
+      }
+
+      save();
+      renderAll();
+      renderSettingsBody();
+      toast('📥 데이터 가져오기 완료 — 일정 ' + state.events.length + '개 복원');
+    } catch(err) {
+      toast('파일 읽기 실패: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
 }
 
 function setMonoFont(fontValue) {
