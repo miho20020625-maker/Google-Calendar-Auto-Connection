@@ -361,6 +361,40 @@ body { font-family:var(--font); background:var(--bg); color:var(--text); overflo
   </div>
 </div>
 
+<!-- ═══ UPDATE NOTICE ═══ -->
+<div id="update-popup" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999996;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+  <div style="background:#1a1a28;border:1px solid rgba(255,255,255,0.15);border-radius:14px;width:340px;padding:28px;text-align:center;">
+    <div style="font-size:16px;font-weight:900;color:#00ff88;margin-bottom:14px;">🆕 업데이트 사항</div>
+    <div style="font-size:11px;color:#ccc;line-height:1.8;text-align:left;margin-bottom:20px;">
+      <strong style="color:#00ccff;">• AI 연동 기능 추가</strong><br>
+      &nbsp;&nbsp;GPT / Gemini / Claude API를 연동하여<br>
+      &nbsp;&nbsp;글쓰기를 자동으로 다듬어주는 "딸깍" 기능<br><br>
+      <strong style="color:#00ccff;">• 서체/분량 선택</strong><br>
+      &nbsp;&nbsp;대학생~프로 수준, S/M/L 분량 조절<br><br>
+      <strong style="color:#00ccff;">• 작업결과물 PDF 별도 저장</strong><br>
+      &nbsp;&nbsp;WORK PRODUCT만 A3로 분리 출력<br><br>
+      <strong style="color:#00ccff;">• Ctrl+V 붙여넣기</strong><br>
+      &nbsp;&nbsp;이미지/텍스트 클립보드 바로 추가<br><br>
+      <strong style="color:#00ccff;">• Ctrl+Z 되돌리기</strong><br>
+      &nbsp;&nbsp;캔버스 작업 실행 취소
+    </div>
+    <button onclick="dismissUpdate(false)" style="padding:10px 28px;border-radius:8px;border:none;background:#00ff88;color:#000;font-family:'Noto Sans KR';font-size:12px;font-weight:900;cursor:pointer;margin-right:8px;">확인</button>
+    <button onclick="dismissUpdate(true)" style="padding:10px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#888;font-family:'Noto Sans KR';font-size:11px;font-weight:700;cursor:pointer;">다시 보지 않기</button>
+  </div>
+</div>
+
+<!-- ═══ TUTORIAL OVERLAY ═══ -->
+<div id="tutorial-overlay" style="position:fixed;inset:0;background:transparent;z-index:999995;display:none;flex-direction:column;align-items:center;justify-content:center;">
+  <svg id="tut-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div id="tut-text" style="position:absolute;color:#fff;font-family:'Noto Sans KR';font-size:13px;font-weight:700;line-height:1.7;max-width:280px;text-align:left;pointer-events:none;"></div>
+  <div style="position:absolute;bottom:40px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10;">
+    <button id="tut-prev-btn" onclick="tutPrev()" style="display:none;padding:10px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-family:'Noto Sans KR';font-size:12px;font-weight:700;cursor:pointer;">이전</button>
+    <button id="tut-next-btn" onclick="tutNext()" style="padding:10px 36px;border-radius:8px;border:none;background:#fff;color:#000;font-family:'Noto Sans KR';font-size:13px;font-weight:900;cursor:pointer;">다음</button>
+    <button id="tut-never-btn" style="display:none;padding:10px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#888;font-family:'Noto Sans KR';font-size:11px;font-weight:700;cursor:pointer;" onclick="endTutorial(true)">다시 보지 않기</button>
+  </div>
+  <div id="tut-dots" style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:6px;"></div>
+</div>
+
 <!-- ═══ SPLASH SCREEN ═══ -->
 <div id="splash" style="position:fixed;inset:0;background:#0a0a0f;z-index:99999;display:flex;align-items:center;justify-content:center;">
   <canvas id="splash-canvas" style="position:absolute;inset:0;"></canvas>
@@ -740,6 +774,16 @@ Claude일 경우:
         </div>
       </div>
       <textarea class="text-area" id="input-critic" rows="4"></textarea>
+      <div id="critic-photo-zone" style="display:flex;align-items:center;gap:6px;margin-top:4px;padding:6px 8px;border:1px dashed var(--border2);border-radius:6px;cursor:pointer;font-size:9px;color:var(--dim);"
+        onclick="document.getElementById('critic-photo-input').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor=''"
+        ondrop="event.preventDefault();this.style.borderColor='';addCriticPhoto(event.dataTransfer.files[0])">
+        <span id="critic-photo-label">📎 사진 첨부 (1장)</span>
+        <img id="critic-photo-preview" style="display:none;width:36px;height:36px;object-fit:cover;border-radius:4px;">
+        <button id="critic-photo-remove" onclick="event.stopPropagation();removeCriticPhoto()" style="display:none;background:none;border:none;color:#ff4466;cursor:pointer;font-size:12px;padding:2px;">✕</button>
+      </div>
+      <input type="file" id="critic-photo-input" accept="image/*" style="display:none" onchange="addCriticPhoto(this.files[0]);this.value=''">
     </div>
 
     <div class="action-row">
@@ -764,8 +808,9 @@ Claude일 경우:
     </div>
     <input type="file" id="change-photo-input" accept="image/*" style="display:none" onchange="changeProfilePhoto(event)">
     <div style="display:flex;gap:6px;">
-      <button class="settings-btn" onclick="openSettings()" style="flex:1;">⚙️ 기본 설정</button>
-      <button class="settings-btn" onclick="resetAll()" style="flex:0;padding:8px 12px;color:#ff4466;">🔄</button>
+      <button class="settings-btn" onclick="openSettings()" style="flex:1;">⚙️ 설정</button>
+      <button class="settings-btn" onclick="startTutorial()" style="flex:0;padding:8px 10px;" title="튜토리얼">❓</button>
+      <button class="settings-btn" onclick="resetAll()" style="flex:0;padding:8px 10px;color:#ff4466;" title="초기화">🔄</button>
     </div>
   </div>
 </div>
@@ -1081,6 +1126,30 @@ function autoDetectWeek() {
   cfg.currentDay = bestDay;
 }
 
+var criticPhotoData = null;
+
+function addCriticPhoto(file) {
+  if (!file || !file.type.startsWith('image/')) { toast('이미지 파일만 가능해요'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    criticPhotoData = e.target.result;
+    document.getElementById('critic-photo-preview').src = criticPhotoData;
+    document.getElementById('critic-photo-preview').style.display = 'block';
+    document.getElementById('critic-photo-remove').style.display = 'block';
+    document.getElementById('critic-photo-label').textContent = '📎 첨부됨';
+    renderPDF();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeCriticPhoto() {
+  criticPhotoData = null;
+  document.getElementById('critic-photo-preview').style.display = 'none';
+  document.getElementById('critic-photo-remove').style.display = 'none';
+  document.getElementById('critic-photo-label').textContent = '📎 사진 첨부 (1장)';
+  renderPDF();
+}
+
 function nextSession() {
   // 16주차 목 → 끝
   if (cfg.currentWeek >= 16 && cfg.currentDay === 'Thu') {
@@ -1096,6 +1165,7 @@ function nextSession() {
   photos = []; wpTexts = []; wpSelected.clear(); wpTxtSelected.clear();
   document.getElementById('input-contents').value = '';
   document.getElementById('input-critic').value = '';
+  removeCriticPhoto();
   saveCfg();
   refreshAll();
 }
@@ -1115,6 +1185,7 @@ function prevSession() {
   photos = []; wpTexts = []; wpSelected.clear(); wpTxtSelected.clear();
   document.getElementById('input-contents').value = '';
   document.getElementById('input-critic').value = '';
+  removeCriticPhoto();
   saveCfg();
   refreshAll();
 }
@@ -1945,7 +2016,14 @@ function renderPDF() {
 
   // Text
   document.getElementById('pdf-contents').textContent = document.getElementById('input-contents').value;
-  document.getElementById('pdf-critic').textContent = document.getElementById('input-critic').value;
+  var criticText = document.getElementById('input-critic').value;
+  var criticEl = document.getElementById('pdf-critic');
+  if (criticPhotoData) {
+    criticEl.innerHTML = '<img src="'+criticPhotoData+'" style="width:100%;max-height:50%;object-fit:contain;border-radius:2px;margin-bottom:4px;display:block;">'
+      + '<div style="white-space:pre-wrap;word-break:break-word;">'+criticText.replace(/</g,'&lt;')+'</div>';
+  } else {
+    criticEl.textContent = criticText;
+  }
 
   // Scale preview
   scalePreview();
@@ -2261,7 +2339,7 @@ function aiRewrite(field) {
     headers = {'Content-Type':'application/json','Authorization':'Bearer '+cfg.aiKey};
     body = JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}],max_tokens:500});
   } else if (cfg.aiProvider === 'gemini') {
-    apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+cfg.aiKey;
+    apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+cfg.aiKey;
     headers = {'Content-Type':'application/json'};
     body = JSON.stringify({contents:[{parts:[{text:prompt}]}]});
   } else if (cfg.aiProvider === 'claude') {
@@ -2283,9 +2361,8 @@ function aiRewrite(field) {
           result = data.content[0].text;
         }
       } catch(parseErr) {
-        // API returned unexpected structure
-        console.error('AI 응답 파싱 실패:', JSON.stringify(data).slice(0,500));
-        toast('AI 응답 파싱 실패 — 콘솔(F12)에서 확인하세요');
+        var raw = JSON.stringify(data).slice(0,200);
+        toast('⚠ 파싱 실패: ' + raw);
         return;
       }
       if (result && result.trim()) {
@@ -2293,24 +2370,31 @@ function aiRewrite(field) {
         renderPDF();
         toast('🤖 딸깍 완료!');
       } else {
-        console.error('AI 응답이 비어있음:', JSON.stringify(data).slice(0,500));
-        // Check for error messages
-        var errMsg = data.error && (data.error.message || data.error.status) || '';
-        toast('AI 응답이 비어있어요' + (errMsg ? ': ' + errMsg : ' — F12 콘솔 확인'));
+        var raw = JSON.stringify(data).slice(0,200);
+        toast('⚠ 응답 비어있음: ' + raw);
       }
     })
     .catch(function(err) {
-      toast('AI 호출 실패: ' + err.message);
+      toast('⚠ 호출 실패: ' + err.message);
     });
 }
 
 function startApp() {
   document.getElementById('app').classList.add('show');
   refreshAll();
-  // Live update
   document.getElementById('input-contents').addEventListener('input', renderPDF);
   document.getElementById('input-critic').addEventListener('input', renderPDF);
   window.addEventListener('resize', scalePreview);
+  
+  // Show update popup for returning users (if not dismissed forever)
+  if (cfg && !localStorage.getItem(UPDATE_KEY)) {
+    setTimeout(function(){
+      document.getElementById('update-popup').style.display = 'flex';
+    }, 500);
+  } else if (cfg && !localStorage.getItem(TUTORIAL_KEY)) {
+    // No update popup but tutorial not done yet
+    setTimeout(function(){ startTutorial(); }, 500);
+  }
 }
 
 /* ═══════════════════════════════════════
@@ -2563,6 +2647,187 @@ document.addEventListener('click',function(e){if(!e.target.closest('.dd-wrap'))d
    SECURITY POLICY
 ═══════════════════════════════════════ */
 var POLICY_KEY = 'arch-pf-policy-accepted';
+var UPDATE_KEY = 'arch-pf-update-v2';
+var TUTORIAL_KEY = 'arch-pf-tutorial-done';
+
+function dismissUpdate(forever) {
+  if (forever) localStorage.setItem(UPDATE_KEY, 'true');
+  document.getElementById('update-popup').style.display = 'none';
+  // Show tutorial if never shown
+  if (!localStorage.getItem(TUTORIAL_KEY)) {
+    startTutorial();
+  }
+}
+
+/* ═══════════════════════════════════════
+   TUTORIAL SYSTEM
+═══════════════════════════════════════ */
+var tutStep = 0;
+var tutSteps = [
+  {
+    target: function(){ return document.querySelector('.action-row:first-of-type'); },
+    text: '◀ 이전 수업 / 다음 수업 ▶\n날짜가 자동으로 변경됩니다.\n1주차~16주차, 월/목 자동 전환.',
+    side: 'right'
+  },
+  {
+    target: function(){ return document.getElementById('photo-zone'); },
+    text: '📸 사진/PDF 입력\n클릭하여 파일을 선택하거나,\n드래그&드롭으로 넣으면 됩니다.\nPDF도 지원!',
+    side: 'right'
+  },
+  {
+    target: function(){ return document.getElementById('input-contents'); },
+    text: '📝 CONTENTS\n작업 내용을 여기에 입력하세요.\n옆의 "딸깍" 버튼으로\nAI가 글을 자동으로 다듬어줍니다.',
+    side: 'right'
+  },
+  {
+    target: function(){
+      var ta = document.getElementById('input-critic');
+      var pz = document.getElementById('critic-photo-zone');
+      if (!ta || !pz) return ta;
+      var r1 = ta.getBoundingClientRect();
+      var r2 = pz.getBoundingClientRect();
+      return {getBoundingClientRect:function(){return {left:Math.min(r1.left,r2.left),top:r1.top,right:Math.max(r1.right,r2.right),bottom:r2.bottom,width:Math.max(r1.right,r2.right)-Math.min(r1.left,r2.left),height:r2.bottom-r1.top};}};
+    },
+    text: '💬 CRITIC NOTE\n교수님 피드백을 여기에 입력하세요.\n마찬가지로 "딸깍"으로 AI 리라이팅.\n📎 크리틱 노트에 사진 한 장까지 첨부 가능!',
+    side: 'right'
+  },
+  {
+    target: function(){
+      // PDF buttons area — from 포트폴리오 PDF button to work filename box
+      var first = document.querySelector('.act-btn.primary');
+      var last = document.getElementById('filename-box-work');
+      if (!first || !last) return first;
+      var r1 = first.getBoundingClientRect();
+      var r2 = last.getBoundingClientRect();
+      return {getBoundingClientRect:function(){return {left:Math.min(r1.left,r2.left),top:r1.top,right:Math.max(r1.right,r2.right),bottom:r2.bottom,width:Math.max(r1.right,r2.right)-Math.min(r1.left,r2.left),height:r2.bottom-r1.top};}};
+    },
+    text: '📄 PDF 생성\n포트폴리오 PDF — 전체 양식 인쇄\n작업결과물 PDF — WORK PRODUCT만 분리\n아래 파일명을 클릭하면 복사됩니다.',
+    side: 'right'
+  },
+  {
+    target: function(){
+      // All bottom button rows (AI연동+프사 row + 설정+?+초기화 row)
+      var allBtns = document.querySelectorAll('.settings-btn');
+      if (!allBtns.length) return null;
+      var rects = [];
+      allBtns.forEach(function(b){ rects.push(b.getBoundingClientRect()); });
+      var minL = 9999, minT = 9999, maxR = 0, maxB = 0;
+      rects.forEach(function(r){ if(r.left<minL)minL=r.left; if(r.top<minT)minT=r.top; if(r.right>maxR)maxR=r.right; if(r.bottom>maxB)maxB=r.bottom; });
+      return {getBoundingClientRect:function(){return {left:minL-4,top:minT-4,right:maxR+4,bottom:maxB+4,width:maxR-minL+8,height:maxB-minT+8};}};
+    },
+    text: '🤖 AI 연동 — API Key 등록\n📷 프사 변경 — 프로필 사진 교체\n⚙️ 설정 — 기본 정보 수정\n❓ 튜토리얼 다시 보기\n🔄 초기화 — 전체 리셋',
+    side: 'right'
+  },
+  {
+    target: function(){ return document.getElementById('pdf-photos'); },
+    text: '🖼️ WORK PRODUCT 캔버스\n• 우클릭 → 사진 추가 / 텍스트 입력\n• Ctrl+V → 복사한 이미지·글 붙여넣기\n• 드래그로 이동, 모서리로 크기 조절\n• Shift+클릭 → 다중선택\n• Ctrl+Z → 되돌리기\n• PPT처럼 자유롭게 레이아웃!',
+    side: 'center'
+  }
+];
+
+function startTutorial() {
+  tutStep = 0;
+  var overlay = document.getElementById('tutorial-overlay');
+  overlay.style.display = 'flex';
+  var dotsEl = document.getElementById('tut-dots');
+  dotsEl.innerHTML = '';
+  for (var i = 0; i < tutSteps.length; i++) {
+    var d = document.createElement('div');
+    d.style.cssText = 'width:6px;height:6px;border-radius:50%;background:' + (i===0?'#fff':'rgba(255,255,255,0.3)') + ';transition:background 0.2s;';
+    dotsEl.appendChild(d);
+  }
+  renderTutStep();
+}
+
+function renderTutStep() {
+  var step = tutSteps[tutStep];
+  var svg = document.getElementById('tut-svg');
+  var textEl = document.getElementById('tut-text');
+  var nextBtn = document.getElementById('tut-next-btn');
+  var prevBtn = document.getElementById('tut-prev-btn');
+  var neverBtn = document.getElementById('tut-never-btn');
+  var isLast = tutStep >= tutSteps.length - 1;
+  var isFirst = tutStep === 0;
+  
+  // Prev button
+  prevBtn.style.display = isFirst ? 'none' : 'inline-block';
+  
+  // Next/Close button
+  if (isLast) {
+    nextBtn.textContent = '닫기';
+    nextBtn.onclick = function() { endTutorial(false); };
+    neverBtn.style.display = 'inline-block';
+  } else {
+    nextBtn.textContent = '다음';
+    nextBtn.onclick = tutNext;
+    neverBtn.style.display = 'none';
+  }
+  
+  var el = step.target();
+  if (!el) { tutNext(); return; }
+  var r = el.getBoundingClientRect();
+  
+  var pad = 8;
+  var bx = r.left - pad, by = r.top - pad, bw = r.width + pad*2, bh = r.height + pad*2;
+  var W = window.innerWidth, H = window.innerHeight;
+  
+  // Spotlight mask: full screen dark with a cutout hole
+  svg.innerHTML = '<defs><mask id="tut-mask">'
+    + '<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="white"/>'
+    + '<rect x="'+bx+'" y="'+by+'" width="'+bw+'" height="'+bh+'" rx="8" ry="8" fill="black"/>'
+    + '</mask></defs>'
+    + '<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="rgba(0,0,0,0.75)" mask="url(#tut-mask)"/>'
+    + '<rect x="'+bx+'" y="'+by+'" width="'+bw+'" height="'+bh+'" rx="8" ry="8" fill="none" stroke="#fff" stroke-width="2"/>';
+  
+  // Text position
+  var tx, ty;
+  if (step.side === 'center') {
+    tx = bx + bw/2 - 140;
+    ty = by + bh/2 - 60;
+    if (ty < 40) ty = 40;
+  } else if (step.side === 'left') {
+    tx = bx - 300; ty = by + bh/2 - 50;
+    if (tx < 20) tx = 20;
+  } else {
+    tx = bx + bw + 40; ty = by + bh/2 - 50;
+    if (tx + 280 > window.innerWidth) { tx = bx - 300; if(tx<20)tx=20; }
+  }
+  if (ty < 20) ty = 20;
+  if (ty + 120 > window.innerHeight - 100) ty = window.innerHeight - 240;
+  
+  // Line (except center)
+  if (step.side !== 'center') {
+    var lx1, ly1, lx2, ly2;
+    if (tx > bx + bw) { lx1 = bx+bw; ly1 = by+bh/2; lx2 = tx-8; ly2 = ty+30; }
+    else { lx1 = bx; ly1 = by+bh/2; lx2 = tx+270; ly2 = ty+30; }
+    svg.innerHTML += '<line x1="'+lx1+'" y1="'+ly1+'" x2="'+lx2+'" y2="'+ly2+'" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="4,3"/>';
+  }
+  
+  textEl.style.left = tx + 'px';
+  textEl.style.top = ty + 'px';
+  textEl.textContent = step.text;
+  textEl.style.whiteSpace = 'pre-wrap';
+  textEl.style.color = step.side === 'center' ? '#000' : '#fff';
+  
+  document.querySelectorAll('#tut-dots div').forEach(function(d,i){
+    d.style.background = i===tutStep ? '#fff' : 'rgba(255,255,255,0.3)';
+  });
+}
+
+function tutPrev() {
+  if (tutStep > 0) { tutStep--; renderTutStep(); }
+}
+
+function tutNext() {
+  tutStep++;
+  if (tutStep >= tutSteps.length) { endTutorial(false); return; }
+  renderTutStep();
+}
+
+function endTutorial(never) {
+  if (never) localStorage.setItem(TUTORIAL_KEY, 'true');
+  document.getElementById('tutorial-overlay').style.display = 'none';
+}
 function acceptPolicy() {
   localStorage.setItem(POLICY_KEY, 'true');
   var screen = document.getElementById('security-screen');
