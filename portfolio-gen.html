@@ -1,0 +1,2674 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>건축설계 포트폴리오 생성기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+@page { size: A3 landscape; margin: 0; }
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:#0a0a0f; --bg2:#12121a; --bg3:#1a1a28;
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.15);
+  --text:#e8e8e8; --dim:#555; --accent:#00ff88; --accent-dim:rgba(0,255,136,0.08);
+  --r:10px; --font:'Noto Sans KR',sans-serif;
+}
+body { font-family:var(--font); background:var(--bg); color:var(--text); overflow-x:hidden; }
+
+/* ═══ ONBOARDING ═══ */
+.onboard-overlay {
+  position:fixed; inset:0; background:var(--bg);
+  display:flex; align-items:center; justify-content:center; z-index:9999;
+}
+.onboard-overlay.done { display:none; }
+.onboard-box { width:400px; text-align:center; }
+.ob-step { display:none; animation:fadeUp .3s ease; }
+.ob-step.active { display:block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+.ob-title {
+  font-size:26px; font-weight:900; margin-bottom:6px;
+  background:linear-gradient(135deg,var(--accent),#00ccff);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.ob-sub { font-size:12px; color:var(--dim); margin-bottom:28px; line-height:1.5; }
+.ob-input {
+  width:100%; padding:14px 18px; background:var(--bg2);
+  border:1px solid var(--border2); border-radius:var(--r);
+  color:var(--text); font-family:var(--font); font-size:15px;
+  font-weight:500; outline:none; text-align:center;
+}
+.ob-input:focus { border-color:var(--accent); }
+.ob-input::placeholder { color:var(--dim); }
+@keyframes shake {
+  0%,100% { transform:translateX(0); }
+  20% { transform:translateX(-8px); }
+  40% { transform:translateX(8px); }
+  60% { transform:translateX(-5px); }
+  80% { transform:translateX(5px); }
+}
+
+.ob-photo-drop {
+  width:160px; height:160px; margin:0 auto 20px;
+  border:2px dashed var(--border2); border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all .2s; overflow:hidden; position:relative;
+}
+.ob-photo-drop:hover { border-color:var(--accent); background:var(--accent-dim); }
+.ob-photo-drop img { width:100%; height:100%; object-fit:cover; position:absolute; inset:0; }
+.ob-photo-drop .ph-text { font-size:11px; color:var(--dim); line-height:1.5; }
+
+.ob-pick-row { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-bottom:20px; }
+.ob-pick-btn {
+  width:44px; height:44px; border-radius:10px;
+  background:var(--bg2); border:1.5px solid var(--border2);
+  color:var(--text); font-size:15px; font-weight:700;
+  cursor:pointer; font-family:var(--font); transition:all .15s;
+}
+.ob-pick-btn:hover { border-color:var(--accent); background:var(--accent-dim); }
+.ob-pick-btn.sel { border-color:var(--accent); background:var(--accent); color:#000; }
+
+.ob-row { display:flex; gap:10px; margin-bottom:14px; }
+.ob-row .ob-input { flex:1; }
+.ob-row label { flex:1; display:flex; flex-direction:column; gap:5px; font-size:11px; color:var(--dim); font-weight:700; text-align:left; }
+.ob-row input[type="date"] {
+  padding:10px; background:var(--bg2); border:1px solid var(--border2);
+  border-radius:8px; color:var(--text); font-family:var(--font); font-size:13px; outline:none;
+  color-scheme:dark;
+}
+
+.ob-nav { display:flex; gap:10px; margin-top:28px; justify-content:center; }
+.ob-btn {
+  padding:11px 28px; border-radius:var(--r); border:1px solid var(--border2);
+  background:transparent; color:var(--text); font-family:var(--font);
+  font-size:12px; font-weight:700; cursor:pointer; transition:all .15s;
+}
+.ob-btn:hover { background:rgba(255,255,255,0.04); }
+.ob-btn.primary { background:var(--accent); color:#000; border-color:var(--accent); }
+.ob-btn.primary:hover { background:#00dd77; }
+
+.ob-dots { display:flex; gap:5px; justify-content:center; margin-top:16px; }
+.ob-dot { width:6px; height:6px; border-radius:50%; background:var(--dim); transition:all .2s; }
+.ob-dot.active { background:var(--accent); width:18px; border-radius:3px; }
+
+/* ═══ MAIN APP ═══ */
+.app { display:none; height:100vh; }
+.app.show { display:flex; }
+
+.sidebar {
+  width:360px; height:100vh; background:var(--bg2);
+  border-left:1px solid var(--border); padding:20px;
+  display:flex; flex-direction:column; gap:16px; overflow-y:auto;
+  order:2;
+}
+.main-area {
+  flex:1; padding:20px; overflow:auto;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+}
+
+.sb-header { display:flex; align-items:center; justify-content:space-between; }
+.sb-title {
+  font-size:13px; font-weight:900;
+  background:linear-gradient(135deg,var(--accent),#00ccff);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.sb-week {
+  font-size:10px; color:var(--dim); font-weight:700;
+  background:var(--bg); padding:4px 10px; border-radius:16px; border:1px solid var(--border);
+}
+
+.sb-section-title {
+  font-size:9px; font-weight:700; color:var(--dim);
+  text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+}
+
+/* Photo zone */
+.photo-zone {
+  border:2px dashed var(--border2); border-radius:var(--r);
+  min-height:140px; display:flex; flex-wrap:wrap; gap:6px;
+  padding:12px; cursor:pointer; transition:all .2s;
+  align-items:center; justify-content:center; position:relative;
+}
+.photo-zone:hover { border-color:var(--accent); background:var(--accent-dim); }
+.photo-zone.has-photos { justify-content:flex-start; cursor:default; }
+.pz-placeholder { font-size:11px; color:rgba(255,255,255,0.15); text-align:center; line-height:1.6; font-style:italic; pointer-events:none; }
+.photo-thumb {
+  width:72px; height:72px; border-radius:6px; overflow:hidden;
+  position:relative; border:1px solid var(--border);
+}
+.photo-thumb img { width:100%; height:100%; object-fit:cover; }
+.photo-thumb .pt-x {
+  position:absolute; top:2px; right:2px; width:16px; height:16px;
+  border-radius:50%; background:rgba(0,0,0,.7); color:#fff; border:none;
+  font-size:9px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.photo-add {
+  width:72px; height:72px; border-radius:6px; border:1.5px dashed var(--border2);
+  display:flex; align-items:center; justify-content:center;
+  color:var(--dim); font-size:20px; cursor:pointer; transition:all .15s;
+}
+.photo-add:hover { border-color:var(--accent); color:var(--accent); }
+
+.text-area {
+  width:100%; min-height:80px; padding:12px; background:var(--bg);
+  border:1px solid var(--border); border-radius:var(--r);
+  color:var(--text); font-family:var(--font); font-size:12px; font-weight:500;
+  line-height:1.7; resize:vertical; outline:none;
+}
+.text-area:focus { border-color:var(--accent); }
+.text-area::placeholder { color:rgba(255,255,255,0.12); font-style:italic; }
+
+.action-row { display:flex; gap:6px; flex-wrap:wrap; }
+.act-btn {
+  padding:9px 16px; border-radius:8px; border:1px solid var(--border2);
+  background:var(--bg); color:var(--text); font-family:var(--font);
+  font-size:11px; font-weight:700; cursor:pointer; transition:all .15s;
+}
+.act-btn:hover { border-color:var(--accent); background:var(--accent-dim); }
+.act-btn.primary { background:var(--accent); color:#000; border-color:var(--accent); }
+.act-btn.primary:hover { background:#00dd77; }
+
+.settings-btn {
+  margin-top:auto; padding:8px; border-radius:8px;
+  background:transparent; border:1px solid var(--border);
+  color:var(--dim); font-family:var(--font); font-size:10px;
+  font-weight:700; cursor:pointer; text-align:left;
+}
+.settings-btn:hover { background:rgba(255,255,255,0.03); color:var(--text); }
+
+/* ═══ PDF PREVIEW ═══ */
+.pdf-scale-wrap { transform-origin:top center; }
+.pdf-frame {
+  width:420mm; height:297mm; background:white; color:#000;
+  font-family:var(--font); font-weight:500;
+  box-shadow:0 8px 40px rgba(0,0,0,.5); overflow:hidden;
+}
+.pdf-pad { width:100%; height:100%; padding:10mm; }
+.pdf-table {
+  width:100%; height:100%;
+  border-collapse:collapse;
+  border:0.5px solid #000;
+  table-layout:fixed;
+}
+.pdf-table td { border:0.5px solid #000; vertical-align:top; }
+
+.pc-photo { width:52mm; overflow:hidden; background:#f5f5f5; padding:1.5mm; }
+.pc-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+.pc-title {
+  padding:0; height:53mm; position:relative;
+}
+.pc-title-inner {
+  position:absolute; inset:0; padding:4mm;
+  display:flex; flex-direction:column; justify-content:space-between;
+}
+.pc-title-top { display:flex; justify-content:space-between; align-items:flex-start; }
+.pc-course { font-size:14pt; font-weight:700; }
+.pc-week { font-size:28pt; font-weight:700; }
+.pc-title-bot { display:flex; justify-content:space-between; align-items:flex-end; }
+.pc-class,.pc-date { font-size:12pt; }
+
+.pc-info-cell { padding:0 2mm; font-size:10pt; height:9mm; vertical-align:middle !important; white-space:nowrap; }
+.pc-info-b { font-weight:700; margin-right:2mm; }
+
+.pc-work { padding:3mm; overflow:visible; position:relative; }
+.pc-critic { padding:3mm; overflow:hidden; }
+.pc-contents { padding:3mm; height:60mm; overflow:hidden; }
+.pc-footer {
+  background:#222 !important; color:#fff !important;
+  text-align:right; padding:0 5mm; height:7mm;
+  font-size:6.5pt; font-weight:700;
+  -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  color-adjust:exact;
+}
+
+.pc-label { font-size:12pt; font-weight:700; margin-bottom:2mm; }
+.pc-body { font-size:10pt; line-height:1.6; white-space:pre-wrap; word-break:break-word; overflow:hidden; }
+
+.wp-canvas { position:relative; width:100%; height:calc(100% - 6mm); overflow:visible; }
+.wp-canvas .wp-img {
+  position:absolute; cursor:grab; user-select:none;
+  box-sizing:border-box; border:1px solid transparent;
+}
+.wp-canvas .wp-img:hover { border-color:rgba(0,120,255,0.3); }
+.wp-canvas .wp-img.selected { border:1.5px solid #0078ff; }
+.wp-canvas .wp-img img { width:100%; height:100%; object-fit:contain; pointer-events:none; display:block; }
+/* Text objects — always above photos */
+.wp-canvas .wp-txt {
+  position:absolute; cursor:grab; user-select:none;
+  box-sizing:border-box; border:1px solid transparent;
+  z-index:1000; min-width:30px; min-height:16px;
+}
+.wp-canvas .wp-txt:hover { border-color:rgba(0,120,255,0.3); }
+.wp-canvas .wp-txt.selected { border:1.5px solid #0078ff; }
+.wp-txt-inner {
+  width:100%; height:100%; outline:none; font-family:var(--font);
+  font-weight:500; font-size:10pt; color:#000; line-height:1.4;
+  white-space:pre-wrap; word-break:break-word; overflow:hidden;
+  cursor:text; background:transparent;
+}
+.wp-txt:not(.editing) .wp-txt-inner { cursor:grab; pointer-events:none; }
+.wp-txt.editing { cursor:text; border-color:#0078ff; }
+.wp-txt.editing .wp-txt-inner { pointer-events:auto; cursor:text; }
+/* Resize handles */
+.wp-handle {
+  position:absolute; width:8px; height:8px; background:#0078ff;
+  border:1px solid #fff; border-radius:50%; z-index:10; display:none;
+}
+.wp-img.selected .wp-handle, .wp-txt.selected .wp-handle { display:block; }
+.wp-handle.tl { top:-4px; left:-4px; cursor:nwse-resize; }
+.wp-handle.tr { top:-4px; right:-4px; cursor:nesw-resize; }
+.wp-handle.bl { bottom:-4px; left:-4px; cursor:nesw-resize; }
+.wp-handle.br { bottom:-4px; right:-4px; cursor:nwse-resize; }
+/* Snap guides */
+.wp-snap-line {
+  position:absolute; z-index:2000; pointer-events:none;
+}
+.wp-snap-line.h { height:0; left:0; right:0; border-top:1px dashed rgba(100,100,100,0.5); }
+.wp-snap-line.v { width:0; top:0; bottom:0; border-left:1px dashed rgba(100,100,100,0.5); }
+/* Context menus */
+.wp-ctx {
+  position:fixed; background:#1a1a28; border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px; padding:4px 0; z-index:9990; min-width:150px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5); display:none;
+  font-family:var(--font); font-size:11px; color:#e8e8e8;
+}
+.wp-ctx.show { display:block; }
+.wp-ctx-item { padding:6px 14px; cursor:pointer; font-weight:500; white-space:nowrap; }
+.wp-ctx-item:hover { background:rgba(255,255,255,0.06); }
+.wp-ctx-item.danger { color:#ff4466; }
+.wp-ctx-sep { height:1px; background:rgba(255,255,255,0.08); margin:3px 0; }
+/* Context sub-menu (align) */
+.wp-ctx-sub {
+  position:absolute; left:100%; top:-4px;
+  background:#1a1a28; border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px; padding:4px 0; min-width:150px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  display:none; z-index:9991;
+}
+.wp-ctx-sub.show { display:block; }
+.wp-ctx-hover { position:relative; }
+.wp-ctx-hover:hover .wp-ctx-sub { display:block; }
+.wp-ctx-arrow { float:right; color:#666; margin-left:8px; }
+
+@media print {
+  body { background:white; -webkit-print-color-adjust:exact; print-color-adjust:exact; color-adjust:exact; }
+  .sidebar,.main-area>*:not(.pdf-scale-wrap) { display:none!important; }
+  .app { display:block!important; }
+  .main-area { padding:0; }
+  .pdf-scale-wrap { transform:none!important; }
+  .pdf-frame { box-shadow:none; }
+  .pc-footer { background:#222!important; color:#fff!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ LEE+PARTNERS INTRO ═══ -->
+<div id="lp-intro" style="position:fixed;inset:0;background:#0a0a0f;z-index:999999;display:flex;align-items:center;justify-content:center;">
+  <div id="lp-text" style="opacity:0;transition:opacity 0.8s;text-align:center;">
+    <div style="font-family:'Noto Sans KR',serif;font-size:28px;font-weight:900;letter-spacing:2px;
+      background:linear-gradient(135deg,#c0c0c0,#ffffff,#e0e0e0,#a0a0a0);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      filter:brightness(1.2);text-shadow:0 0 40px rgba(255,255,255,0.1);">
+      Lee + Partners
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SECURITY POLICY ═══ -->
+<div id="security-screen" style="position:fixed;inset:0;background:#0a0a0f;z-index:999998;display:none;align-items:center;justify-content:center;overflow-y:auto;">
+  <div style="width:440px;padding:32px 0;text-align:left;">
+    <div style="font-size:20px;font-weight:900;color:#ff4466;margin-bottom:16px;font-family:'Noto Sans KR';text-align:center;">⚠ 보안정책 및 면책조항</div>
+
+    <div style="background:rgba(255,68,102,0.08);border:1px solid rgba(255,68,102,0.3);border-radius:10px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:900;color:#ff4466;margin-bottom:8px;">🔴 특급보안사항</div>
+      <div style="font-size:11px;color:#e8e8e8;line-height:1.7;">
+        공유 컴퓨터 또는 공용 네트워크에서 본 앱을 사용할 경우, 기입된 <strong style="color:#ff4466;">AI API Key가 노출</strong>되어 보안이 훼손될 수 있습니다. API Key는 브라우저의 localStorage에 저장되며, 같은 브라우저를 사용하는 다른 사용자가 접근할 수 있습니다.
+        <br><br>
+        <strong style="color:#ff4466;">반드시 개인 컴퓨터에서만 사용하세요.</strong>
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:#aaa;margin-bottom:8px;">📋 보안정책</div>
+      <div style="font-size:10px;color:#888;line-height:1.8;">
+        1. 본 앱은 모든 데이터를 사용자의 브라우저(localStorage)에만 저장하며, 외부 서버로 전송하지 않습니다.<br>
+        2. AI 기능 사용 시, 입력된 텍스트가 선택한 AI 서비스(OpenAI, Google, Anthropic)의 API로 전송됩니다.<br>
+        3. AI API Key는 암호화되지 않은 상태로 localStorage에 저장됩니다.<br>
+        4. 브라우저 데이터 삭제 시 모든 설정 및 API Key가 함께 삭제됩니다.<br>
+        5. 본 앱의 소스 코드는 사용자의 로컬 환경에서만 실행됩니다.
+      </div>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:16px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;color:#aaa;margin-bottom:8px;">📋 면책조항</div>
+      <div style="font-size:10px;color:#888;line-height:1.8;">
+        1. 본 앱 사용으로 인해 발생하는 데이터 유출, API Key 도용 등의 피해에 대해 개발자는 책임을 지지 않습니다.<br>
+        2. AI가 생성한 텍스트의 정확성, 적절성에 대한 책임은 사용자에게 있습니다.<br>
+        3. 본 앱은 교육 및 개인 포트폴리오 제작 목적으로 제공되며, 상업적 용도의 사용은 권장하지 않습니다.<br>
+        4. 제출물에 대한 학술적 책임은 전적으로 사용자에게 있습니다.
+      </div>
+    </div>
+
+    <div style="text-align:center;">
+      <label style="display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;margin-bottom:16px;">
+        <input type="checkbox" id="agree-check" onchange="document.getElementById('agree-btn').disabled=!this.checked;document.getElementById('agree-btn').style.opacity=this.checked?'1':'0.3';">
+        <span style="font-size:11px;color:#e8e8e8;font-weight:700;">위 보안정책 및 면책조항에 동의합니다</span>
+      </label>
+      <button id="agree-btn" disabled onclick="acceptPolicy()" style="padding:12px 40px;border-radius:10px;border:none;background:var(--accent);color:#000;font-family:'Noto Sans KR';font-size:13px;font-weight:900;cursor:pointer;opacity:0.3;transition:opacity 0.2s;">시작하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SPLASH SCREEN ═══ -->
+<div id="splash" style="position:fixed;inset:0;background:#0a0a0f;z-index:99999;display:flex;align-items:center;justify-content:center;">
+  <canvas id="splash-canvas" style="position:absolute;inset:0;"></canvas>
+  <div id="splash-text" style="position:relative;z-index:2;font-size:28px;font-weight:900;letter-spacing:-1px;opacity:0;transition:opacity 1s;font-family:'Noto Sans KR',sans-serif;">
+    <span style="background:linear-gradient(135deg,#00ff88,#00ccff,#aa66ff,#ff6688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">PORTFOLIO GENERATOR</span>
+  </div>
+</div>
+
+<!-- ═══ LOADING OVERLAY ═══ -->
+<!-- Context Menu (photos) -->
+<div class="wp-ctx" id="wp-ctx">
+  <div class="wp-ctx-item" onclick="wpCtxAction('crop')">✂️ 자르기</div>
+  <div class="wp-ctx-sep"></div>
+  <div class="wp-ctx-item" onclick="wpCtxAction('front')">⬆ 맨 앞으로</div>
+  <div class="wp-ctx-item" onclick="wpCtxAction('forward')">↑ 앞으로</div>
+  <div class="wp-ctx-item" onclick="wpCtxAction('backward')">↓ 뒤로</div>
+  <div class="wp-ctx-item" onclick="wpCtxAction('back')">⬇ 맨 뒤로</div>
+  <div class="wp-ctx-sep"></div>
+  <div class="wp-ctx-item danger" onclick="wpCtxAction('delete')">🗑️ 삭제</div>
+</div>
+
+<!-- Context Menu (text) -->
+<div class="wp-ctx" id="wp-txt-ctx">
+  <div class="wp-ctx-item" onclick="txtCtxAction('edit')">✏️ 텍스트 편집</div>
+  <div class="wp-ctx-sep"></div>
+  <div class="wp-ctx-item" onclick="txtCtxAction('alignL')">◧ 좌측 정렬</div>
+  <div class="wp-ctx-item" onclick="txtCtxAction('alignC')">◫ 중앙 정렬</div>
+  <div class="wp-ctx-item" onclick="txtCtxAction('alignR')">◨ 우측 정렬</div>
+  <div class="wp-ctx-sep"></div>
+  <div style="padding:4px 14px;display:flex;align-items:center;gap:6px;">
+    <span style="font-size:10px;color:#aaa;white-space:nowrap;">크기</span>
+    <input type="number" id="txt-ctx-size" min="5" max="72" style="width:44px;padding:3px 4px;background:#0e0e16;border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#fff;font-size:11px;font-family:var(--font);text-align:center;outline:none;" onchange="txtCtxAction('setSize')">
+    <span style="font-size:10px;color:#666;">pt</span>
+  </div>
+  <div style="padding:4px 14px;display:flex;gap:4px;">
+    <button id="txt-ctx-bold" onclick="txtCtxAction('bold')" style="width:26px;height:26px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#aaa;font-weight:900;font-size:12px;cursor:pointer;font-family:var(--font);">B</button>
+    <button id="txt-ctx-italic" onclick="txtCtxAction('italic')" style="width:26px;height:26px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#aaa;font-style:italic;font-size:12px;cursor:pointer;font-family:var(--font);">I</button>
+    <button id="txt-ctx-underline" onclick="txtCtxAction('underline')" style="width:26px;height:26px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#aaa;font-size:12px;cursor:pointer;font-family:var(--font);text-decoration:underline;">U</button>
+    <button onclick="txtCtxAction('fit')" style="flex:1;height:26px;border-radius:4px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#aaa;font-size:9px;cursor:pointer;font-family:var(--font);white-space:nowrap;">상자 맞추기</button>
+  </div>
+  <div class="wp-ctx-sep"></div>
+  <div class="wp-ctx-item danger" onclick="txtCtxAction('delete')">🗑️ 삭제</div>
+</div>
+
+<!-- Multi-select right-click context menu -->
+<div class="wp-ctx" id="wp-multi-ctx">
+  <div class="wp-ctx-hover">
+    <div class="wp-ctx-item">📐 정렬 <span class="wp-ctx-arrow">▸</span></div>
+    <div class="wp-ctx-sub">
+      <div class="wp-ctx-item" onclick="wpAlign('left')">⫷ 좌측 정렬</div>
+      <div class="wp-ctx-item" onclick="wpAlign('centerH')">⫿ 가로 중앙</div>
+      <div class="wp-ctx-item" onclick="wpAlign('right')">⫸ 우측 정렬</div>
+      <div class="wp-ctx-sep"></div>
+      <div class="wp-ctx-item" onclick="wpAlign('top')">⫠ 상단 정렬</div>
+      <div class="wp-ctx-item" onclick="wpAlign('centerV')">⫟ 세로 중앙</div>
+      <div class="wp-ctx-item" onclick="wpAlign('bottom')">⫡ 하단 정렬</div>
+      <div class="wp-ctx-sep"></div>
+      <div class="wp-ctx-item" onclick="wpAlign('distH')">⇔ 가로 간격 균등</div>
+      <div class="wp-ctx-item" onclick="wpAlign('distV')">⇕ 세로 간격 균등</div>
+    </div>
+  </div>
+  <div class="wp-ctx-sep"></div>
+  <div class="wp-ctx-item danger" onclick="multiCtxAction('delete')">🗑️ 선택 삭제</div>
+</div>
+
+<!-- Canvas background right-click menu -->
+<div class="wp-ctx" id="wp-canvas-ctx">
+  <div class="wp-ctx-item" onclick="canvasCtxAction('addPhoto')">📸 사진 추가</div>
+  <div class="wp-ctx-item" onclick="canvasCtxAction('addText')">📝 텍스트 추가</div>
+</div>
+
+<!-- AI Settings Modal -->
+<div id="ai-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99997;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:360px;padding:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="font-size:14px;font-weight:900;background:linear-gradient(135deg,var(--accent),#00ccff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">🤖 AI 연동</span>
+      <button onclick="closeAIModal()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;">✕</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:12px;">
+      <button class="ai-tog" data-ai="gpt" onclick="selectAI('gpt')">GPT</button>
+      <button class="ai-tog" data-ai="gemini" onclick="selectAI('gemini')">Gemini</button>
+      <button class="ai-tog" data-ai="claude" onclick="selectAI('claude')">Claude</button>
+      <button onclick="toggleAIGuide()" style="background:none;border:1px solid var(--border2);border-radius:6px;color:var(--dim);font-size:10px;padding:4px 8px;cursor:pointer;font-family:var(--font);margin-left:auto;">+ 설명서</button>
+      <button onclick="copyGuide()" style="background:none;border:1px solid var(--border2);border-radius:6px;color:var(--dim);font-size:10px;padding:4px 8px;cursor:pointer;font-family:var(--font);">📋 복사</button>
+    </div>
+    <input id="ai-key-input" class="ob-input" placeholder="API Key 입력" style="font-size:12px;text-align:left;margin-bottom:8px;">
+    <button onclick="saveAISettings()" class="ob-btn primary" style="width:100%;font-size:12px;padding:10px;">저장</button>
+    <div id="ai-guide" style="display:none;margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;">
+      <div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:6px;">아래 내용을 AI에 복사 붙여넣기 하세요:</div>
+      <div id="ai-guide-text" style="font-size:10px;color:var(--dim);line-height:1.6;white-space:pre-wrap;">당신은 API 연동 가이드 어시스턴트입니다.
+사용자가 외부 HTML 앱에서 AI API를 연동하려 합니다.
+
+반드시 아래 순서를 따르세요:
+
+1단계 — 위험성 고지 (반드시 먼저)
+다음 위험사항을 사용자에게 명확히 설명하세요:
+• API Key는 비밀번호와 동일한 보안 수준입니다
+• 공유 PC에서 사용 시 브라우저 localStorage에 키가 저장되어 타인에게 노출될 수 있습니다
+• API Key가 유출되면 타인이 당신의 계정으로 과금을 발생시킬 수 있습니다
+• GitHub, 카톡, 이메일 등에 키를 절대 공유하지 마세요
+
+2단계 — 대응책 안내
+• 개인 PC에서만 사용할 것
+• 사용 후 공용 PC에서는 브라우저 데이터(localStorage)를 삭제할 것
+• API Key에 사용량 제한(월 $5 등)을 설정할 것
+• 의심스러운 과금 발생 시 즉시 키를 폐기하고 재발급할 것
+
+3단계 — API Key 발급 워크플로우
+사용자가 현재 어떤 AI를 사용 중인지 확인하고,
+해당 서비스의 API Key 발급 절차를 단계별로 안내하세요:
+
+GPT일 경우:
+→ https://platform.openai.com/api-keys
+→ 결제 수단 등록 필요 (최소 $5)
+→ "Create new secret key" → 복사
+
+Gemini일 경우:
+→ https://aistudio.google.com/apikey
+→ 무료 할당량 있음
+→ "API 키 만들기" → 복사
+
+Claude일 경우:
+→ https://console.anthropic.com/settings/keys
+→ 결제 수단 등록 필요 (최소 $5)
+→ "Create Key" → 복사
+
+4단계 — 연동 확인
+"복사한 키를 앱의 API Key 입력란에 붙여넣고 저장하세요"라고 안내하세요.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 무료로 쓰고 싶다면 → Gemini
+   품질 최고를 원한다면 → GPT 또는 Claude</div>
+    </div>
+  </div>
+</div>
+<style>
+.ai-tog {
+  flex:1;padding:6px;border-radius:6px;border:1px solid var(--border2);
+  background:transparent;color:var(--dim);font-family:var(--font);font-size:11px;
+  font-weight:700;cursor:pointer;transition:all .15s;
+}
+.ai-tog:hover { border-color:var(--accent); color:var(--text); }
+.ai-tog.active { background:var(--accent); color:#000; border-color:var(--accent); }
+/* Dropdown toggles */
+.dd-wrap { position:relative; }
+.dd-btn {
+  padding:2px 6px;border-radius:4px;border:1px solid var(--border2);
+  background:transparent;color:var(--dim);font-family:var(--font);font-size:8px;
+  font-weight:700;cursor:pointer;white-space:nowrap;
+}
+.dd-btn:hover { border-color:var(--accent);color:var(--text); }
+.dd-list {
+  display:none;position:absolute;right:0;top:100%;margin-top:2px;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:6px;
+  padding:2px 0;z-index:100;min-width:90px;box-shadow:0 4px 12px rgba(0,0,0,0.4);
+}
+.dd-list.show { display:block; }
+.dd-item {
+  padding:4px 10px;font-size:9px;color:var(--dim);cursor:pointer;
+  font-family:var(--font);font-weight:500;white-space:nowrap;
+}
+.dd-item:hover { background:rgba(255,255,255,0.05);color:var(--text); }
+.dd-item.sel { color:var(--accent);font-weight:700; }
+</style>
+
+<div id="loading-overlay" style="position:fixed;inset:0;background:rgba(10,10,15,0.92);z-index:99998;display:none;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(8px);">
+  <div id="load-pct" style="font-size:48px;font-weight:900;font-family:'Noto Sans KR';background:linear-gradient(135deg,#00ff88,#00ccff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">0%</div>
+  <div id="load-curse" style="font-size:13px;color:#555;margin-top:12px;font-weight:700;font-family:'Noto Sans KR';transition:opacity .2s;min-height:20px;"></div>
+  <div style="width:200px;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:20px;overflow:hidden;">
+    <div id="load-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#00ff88,#00ccff);border-radius:2px;transition:width .15s;"></div>
+  </div>
+</div>
+
+<!-- ═══ ONBOARDING ═══ -->
+<div class="onboard-overlay" id="onboard" style="display:none;">
+<div class="onboard-box">
+
+  <div class="ob-step active" data-step="0">
+    <div class="ob-title">기본 세팅을 시작합니다.</div>
+    <div class="ob-sub">건축설계 포트폴리오 자동 생성기</div>
+    <div class="ob-nav" style="position:relative;height:50px;">
+      <button class="ob-btn primary" id="runaway-btn" onmouseenter="runawayHover(event)" onclick="runawayClick()">시작 →</button>
+    </div>
+    <div id="runaway-taunt" style="font-size:11px;color:#ff6688;margin-top:12px;min-height:18px;font-weight:700;opacity:0;transition:opacity .3s;"></div>
+  </div>
+
+  <div class="ob-step" data-step="1">
+    <div class="ob-title">면상 주셈.</div>
+    <div class="ob-sub">프로필 사진을 올려주세요</div>
+    <div class="ob-photo-drop" id="ob-photo-drop" onclick="document.getElementById('ob-photo-file').click()"
+      ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+      ondragleave="this.style.borderColor=''"
+      ondrop="event.preventDefault();this.style.borderColor='';obPhotoFile(event.dataTransfer.files[0])">
+      <div class="ph-text" id="ob-ph-text">클릭 또는<br>드래그</div>
+      <img id="ob-ph-img" style="display:none">
+    </div>
+    <input type="file" id="ob-photo-file" accept="image/*" style="display:none" onchange="obPhotoFile(this.files[0])">
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(0)">←</button><button class="ob-btn primary" onclick="obGo(2)">다음 →</button></div>
+  </div>
+
+  <div class="ob-step" data-step="2">
+    <div class="ob-title">이름.</div>
+    <div class="ob-sub">본명 적어</div>
+    <input class="ob-input" id="ob-name" placeholder="홍길동">
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(1)">←</button><button class="ob-btn primary" onclick="obGo(3)">다음 →</button></div>
+  </div>
+
+  <div class="ob-step" data-step="3">
+    <div class="ob-title">학번.</div>
+    <div class="ob-sub">숫자만</div>
+    <input class="ob-input" id="ob-stdno" placeholder="">
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(2)">←</button><button class="ob-btn primary" onclick="obGo(4)">다음 →</button></div>
+  </div>
+
+  <div class="ob-step" data-step="4">
+    <div class="ob-title">전화번호.</div>
+    <div class="ob-sub">숫자만 치면 자동 하이픈</div>
+    <input class="ob-input" id="ob-phone" placeholder="01012345678" oninput="autoHyphenPhone(this)">
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(3)">←</button><button class="ob-btn primary" onclick="obGo(5)">다음 →</button></div>
+  </div>
+
+  <div class="ob-step" data-step="5">
+    <div class="ob-title">이메일.</div>
+    <div class="ob-sub">제출용 이메일</div>
+    <input class="ob-input" id="ob-email" placeholder="example@gmail.com">
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(4)">←</button><button class="ob-btn primary" onclick="obGo(6)">다음 →</button></div>
+  </div>
+
+  <div class="ob-step" data-step="6">
+    <div class="ob-title">건축설계 몇임?</div>
+    <div class="ob-sub">숫자 고르셈</div>
+    <div class="ob-pick-row" id="ob-design-pick"></div>
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(5)">←</button><button class="ob-btn primary" onclick="obGo(7)">다음 →</button></div>
+  </div>
+
+  <div class="ob-step" data-step="7">
+    <div class="ob-title">몇분반 누구 교수임?</div>
+    <div class="ob-sub">분반이랑 교수님 이름</div>
+    <div class="ob-row">
+      <input class="ob-input" id="ob-division" placeholder="1분반" style="flex:0.4;">
+      <input class="ob-input" id="ob-prof1" placeholder="교수 1">
+      <input class="ob-input" id="ob-prof2" placeholder="교수 2 (없으면 빈칸)">
+    </div>
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(6)">←</button><button class="ob-btn primary" onclick="obGo(8)">다음 →</button></div>
+  </div>
+
+  <div class="ob-step" data-step="8">
+    <div class="ob-title">첫 수업 언제임?</div>
+    <div class="ob-sub">월요일이랑 목요일 첫 수업 날짜</div>
+    <div class="ob-row">
+      <label>월요일 (Mon)<input type="date" id="ob-date-mon"></label>
+      <label>목요일 (Thu)<input type="date" id="ob-date-thu"></label>
+    </div>
+    <div class="ob-nav"><button class="ob-btn" onclick="obGo(7)">←</button><button class="ob-btn primary" onclick="obFinish()">완료! →</button></div>
+  </div>
+
+  <div class="ob-dots" id="ob-dots"></div>
+</div>
+</div>
+
+<!-- ═══ MAIN APP ═══ -->
+<div class="app" id="app">
+
+  <div class="main-area">
+    <div style="font-size:10px;color:var(--dim);font-weight:700;" class="no-print">PDF 미리보기 — Ctrl+P로 인쇄</div>
+    <div class="pdf-scale-wrap" id="pdf-scale-wrap">
+      <div class="pdf-frame">
+        <div class="pdf-pad">
+          <table class="pdf-table" id="pdf-grid" cellspacing="0" cellpadding="0">
+            <colgroup>
+              <col style="width:52mm;">
+              <col>
+              <col>
+              <col>
+              <col style="width:24%;">
+            </colgroup>
+            <tr>
+              <td class="pc-photo" id="pdf-photo" rowspan="2"></td>
+              <td class="pc-title" colspan="4">
+                <div class="pc-title-inner">
+                  <div class="pc-title-top">
+                    <span class="pc-course" id="pdf-course"></span>
+                    <span class="pc-week" id="pdf-week"></span>
+                  </div>
+                  <div class="pc-title-bot">
+                    <span class="pc-class" id="pdf-class"></span>
+                    <span class="pc-date" id="pdf-date"></span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="pc-info-cell"><span class="pc-info-b">Student Number</span><span id="pdf-stdno"></span></td>
+              <td class="pc-info-cell"><span class="pc-info-b">Name</span><span id="pdf-name"></span></td>
+              <td class="pc-info-cell"><span class="pc-info-b">Mobile</span><span id="pdf-mobile"></span></td>
+              <td class="pc-info-cell"><span class="pc-info-b">Email</span><span id="pdf-email"></span></td>
+            </tr>
+            <tr class="pc-main-row">
+              <td class="pc-work" colspan="4">
+                <div class="pc-label">WORK PRODUCT</div>
+                <div class="wp-canvas" id="pdf-photos"></div>
+              </td>
+              <td class="pc-critic" rowspan="2">
+                <div class="pc-label">CRITIC NOTE</div>
+                <div class="pc-body" id="pdf-critic"></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="pc-contents" colspan="4">
+                <div class="pc-label">CONTENTS</div>
+                <div class="pc-body" id="pdf-contents"></div>
+              </td>
+            </tr>
+            <tr>
+              <td class="pc-footer" colspan="5">Dept. of Architecture, INHA UNIVERSITY</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sb-header">
+      <div class="sb-title" id="sb-title">건축설계 07</div>
+      <div class="sb-week" id="sb-week">WEEK 01 Mon</div>
+    </div>
+
+    <div class="action-row" style="justify-content:center;">
+      <button class="act-btn" onclick="prevSession()">← 이전 수업</button>
+      <button class="act-btn" onclick="nextSession()">다음 수업 →</button>
+    </div>
+
+    <div>
+      <div class="sb-section-title">📸 작업 사진</div>
+      <div class="photo-zone" id="photo-zone" onclick="if(!this.classList.contains('has-photos'))document.getElementById('pz-file').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor=''"
+        ondrop="event.preventDefault();this.style.borderColor='';addPhotoFiles(event.dataTransfer.files)">
+        <div class="pz-placeholder" id="pz-placeholder"></div>
+      </div>
+      <input type="file" id="pz-file" accept="image/*,.pdf" multiple style="display:none" onchange="addPhotoFiles(this.files);this.value=''">
+      <button class="act-btn" onclick="addTextBox()" style="width:100%;margin-top:6px;font-size:10px;">📝 텍스트 추가</button>
+    </div>
+
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="sb-section-title">📝 contents</div>
+        <div style="display:flex;gap:3px;align-items:center;">
+          <div class="dd-wrap"><button class="dd-btn" onclick="toggleDD(this)">대학생 고학년 ▾</button><div class="dd-list" data-target="tone-c">
+            <div class="dd-item" onclick="pickDD(this,'tone-c')">대학생 저학년</div><div class="dd-item sel" onclick="pickDD(this,'tone-c')">대학생 고학년</div>
+            <div class="dd-item" onclick="pickDD(this,'tone-c')">석사</div><div class="dd-item" onclick="pickDD(this,'tone-c')">교수님</div>
+            <div class="dd-item" onclick="pickDD(this,'tone-c')">실무적</div><div class="dd-item" onclick="pickDD(this,'tone-c')">프로</div>
+          </div></div>
+          <div class="dd-wrap"><button class="dd-btn" onclick="toggleDD(this)">M ▾</button><div class="dd-list" data-target="len-c">
+            <div class="dd-item" onclick="pickDD(this,'len-c')">S</div><div class="dd-item sel" onclick="pickDD(this,'len-c')">M</div><div class="dd-item" onclick="pickDD(this,'len-c')">L</div>
+          </div></div>
+          <button class="act-btn" onclick="aiRewrite('contents')" style="font-size:9px;padding:3px 8px;border-radius:4px;">딸깍</button>
+        </div>
+      </div>
+      <textarea class="text-area" id="input-contents" rows="4"></textarea>
+    </div>
+
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="sb-section-title">💬 critic note</div>
+        <div style="display:flex;gap:3px;align-items:center;">
+          <div class="dd-wrap"><button class="dd-btn" onclick="toggleDD(this)">대학생 고학년 ▾</button><div class="dd-list" data-target="tone-k">
+            <div class="dd-item" onclick="pickDD(this,'tone-k')">대학생 저학년</div><div class="dd-item sel" onclick="pickDD(this,'tone-k')">대학생 고학년</div>
+            <div class="dd-item" onclick="pickDD(this,'tone-k')">석사</div><div class="dd-item" onclick="pickDD(this,'tone-k')">교수님</div>
+            <div class="dd-item" onclick="pickDD(this,'tone-k')">실무적</div><div class="dd-item" onclick="pickDD(this,'tone-k')">프로</div>
+          </div></div>
+          <div class="dd-wrap"><button class="dd-btn" onclick="toggleDD(this)">M ▾</button><div class="dd-list" data-target="len-k">
+            <div class="dd-item" onclick="pickDD(this,'len-k')">S</div><div class="dd-item sel" onclick="pickDD(this,'len-k')">M</div><div class="dd-item" onclick="pickDD(this,'len-k')">L</div>
+          </div></div>
+          <button class="act-btn" onclick="aiRewrite('critic')" style="font-size:9px;padding:3px 8px;border-radius:4px;">딸깍</button>
+        </div>
+      </div>
+      <textarea class="text-area" id="input-critic" rows="4"></textarea>
+    </div>
+
+    <div class="action-row">
+      <button class="act-btn primary" onclick="doPrint('full')" style="flex:1;">📄 포트폴리오 PDF</button>
+    </div>
+    <div id="filename-box" style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;" onclick="copyFilename('full')" title="클릭하면 복사됨">
+      <span style="font-size:10px;color:var(--dim);flex-shrink:0;">📋</span>
+      <span id="filename-text" style="font-size:10px;color:var(--accent);font-weight:700;word-break:break-all;"></span>
+    </div>
+
+    <div class="action-row" style="margin-top:4px;">
+      <button class="act-btn" onclick="doPrint('work')" style="flex:1;border-color:var(--accent);color:var(--accent);">🖼️ 작업결과물 PDF</button>
+    </div>
+    <div id="filename-box-work" style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;" onclick="copyFilename('work')" title="클릭하면 복사됨">
+      <span style="font-size:10px;color:var(--dim);flex-shrink:0;">📋</span>
+      <span id="filename-text-work" style="font-size:10px;color:var(--accent);font-weight:700;word-break:break-all;"></span>
+    </div>
+
+    <div style="display:flex;gap:6px;">
+      <button class="settings-btn" onclick="openAISettings()" style="flex:1;">🤖 AI 연동</button>
+      <button class="settings-btn" onclick="document.getElementById('change-photo-input').click()" style="flex:1;">📷 프사 변경</button>
+    </div>
+    <input type="file" id="change-photo-input" accept="image/*" style="display:none" onchange="changeProfilePhoto(event)">
+    <div style="display:flex;gap:6px;">
+      <button class="settings-btn" onclick="openSettings()" style="flex:1;">⚙️ 기본 설정</button>
+      <button class="settings-btn" onclick="resetAll()" style="flex:0;padding:8px 12px;color:#ff4466;">🔄</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   FUNNY PLACEHOLDERS
+═══════════════════════════════════════ */
+var PHOTO_JOKES = [
+  "또 무슨 똥을 만드셨나 ㅋㅋ","야 사진 좀 올려라 진짜","작업물 증거 대라","교수님이 보고 계셔","네 손으로 만든 거 맞지?",
+  "캡처 말고 실물 사진","렌더링 돌린 거 여기 넣어","모형 사진 어딨어","밤새운 증거 제출","이번엔 좀 괜찮겠지?",
+  "도면 캡처 가능","에스키스 사진 올려","작업물이 없으면 눈물이라도","이거 제출 안 하면 F야",
+];
+var CONTENTS_JOKES = [
+  "똥글 썼노? ㅋㅋ","뭐라도 써 제발","아무말이라도 적어봐","내용이 없으면 감점이야","여기 뭐 적는 건지 모르겠지?",
+  "ChatGPT한테 물어봐도 되나","한 줄이라도 써라","목차 같은 거 적으면 됨","작업 설명 좀 해봐","뭘 했는지 너도 모르겠지",
+];
+var CRITIC_JOKES = [
+  "ㅋㅋ 존나 혼났겠네?","교수님이 뭐라 하셨어","피드백 받은 거 적어","혼나면 성장하는 거야","에스키스 살아남았어?",
+  "교수님 표정이 어땠어","다시 해오라고 했지?","칭찬 받았으면 여기 자랑해","눈물 좀 닦고 적어","그래도 F는 아니래",
+];
+
+function pickRandom(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+
+/* ═══════════════════════════════════════
+   STATE
+═══════════════════════════════════════ */
+var CFG_KEY = 'arch-portfolio-cfg';
+var cfg = null; // { photo, name, stdno, phone, email, designNo, division, prof1, prof2, dateMon, dateThu, currentWeek, currentDay, backlogMode }
+var photos = []; // array of {src, x, y, w, h, z, naturalW, naturalH}
+var wpTexts = []; // {text, x, y, w, h, fontSize, align, bold, italic, underline}
+var wpSelected = new Set(); // indices of selected photos
+var wpTxtSelected = new Set(); // indices of selected texts
+var wpCtxTarget = -1;
+var wpTxtCtxTarget = -1;
+var wpNextZ = 1;
+var savedCurrent = null;
+
+/* ═══════════════════════════════════════
+   ONBOARDING
+═══════════════════════════════════════ */
+var obStep = 0;
+var obTotalSteps = 9;
+var obPhotoData = '';
+var obDesignNo = 7;
+
+function initOnboarding() {
+  // Design number picker
+  var pick = document.getElementById('ob-design-pick');
+  for (var i = 1; i <= 10; i++) {
+    var b = document.createElement('button');
+    b.className = 'ob-pick-btn' + (i===7?' sel':'');
+    b.textContent = i;
+    b.onclick = (function(n){ return function(){ obDesignNo=n; document.querySelectorAll('.ob-pick-btn').forEach(function(x){x.classList.toggle('sel',parseInt(x.textContent)===n)}); }; })(i);
+    pick.appendChild(b);
+  }
+  // Dots
+  var dots = document.getElementById('ob-dots');
+  for (var d = 0; d < obTotalSteps; d++) {
+    var dot = document.createElement('div');
+    dot.className = 'ob-dot' + (d===0?' active':'');
+    dots.appendChild(dot);
+  }
+  updateObDots();
+}
+
+function obGo(step) {
+  document.querySelectorAll('.ob-step').forEach(function(el){ el.classList.remove('active'); });
+  document.querySelector('[data-step="'+step+'"]').classList.add('active');
+  obStep = step;
+  updateObDots();
+}
+
+function updateObDots() {
+  document.querySelectorAll('.ob-dot').forEach(function(d,i){ d.classList.toggle('active',i===obStep); });
+}
+
+function obPhotoFile(file) {
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    obPhotoData = e.target.result;
+    var img = document.getElementById('ob-ph-img');
+    img.src = obPhotoData; img.style.display = 'block';
+    document.getElementById('ob-ph-text').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function obFinish() {
+  // 필수 입력 검증
+  var checks = [
+    {id:'ob-name', label:'이름', step:2},
+    {id:'ob-stdno', label:'학번', step:3},
+    {id:'ob-phone', label:'전화번호', step:4},
+    {id:'ob-email', label:'이메일', step:5},
+    {id:'ob-prof1', label:'교수 이름', step:7},
+    {id:'ob-date-mon', label:'월요일 첫 수업 날짜', step:8},
+    {id:'ob-date-thu', label:'목요일 첫 수업 날짜', step:8},
+  ];
+  for (var i = 0; i < checks.length; i++) {
+    var el = document.getElementById(checks[i].id);
+    if (!el.value.trim()) {
+      shakeInput(el, checks[i].label + ' 안 적었잖아');
+      obGo(checks[i].step);
+      return;
+    }
+  }
+
+  // 학번 검증
+  var stdno = document.getElementById('ob-stdno').value.trim();
+  if (!/^\d{8}$/.test(stdno)) {
+    shakeInput(document.getElementById('ob-stdno'), '학번은 8자리 숫자여야 해');
+    obGo(3);
+    return;
+  }
+
+  // 분반 자동 정리
+  var divRaw = document.getElementById('ob-division').value.trim();
+  if (/^\d+$/.test(divRaw)) divRaw = divRaw + '분반';
+
+  cfg = {
+    photo: obPhotoData,
+    name: document.getElementById('ob-name').value.trim(),
+    stdno: stdno,
+    phone: document.getElementById('ob-phone').value.trim(),
+    email: document.getElementById('ob-email').value.trim(),
+    designNo: obDesignNo,
+    division: divRaw || '1분반',
+    prof1: document.getElementById('ob-prof1').value.trim(),
+    prof2: document.getElementById('ob-prof2').value.trim(),
+    dateMon: document.getElementById('ob-date-mon').value,
+    dateThu: document.getElementById('ob-date-thu').value,
+    currentWeek: 1,
+    currentDay: 'Mon',
+    aiProvider: '',
+    aiKey: '',
+  };
+  autoDetectWeek();
+  saveCfg();
+
+  reverseSplash(function() {
+    document.getElementById('onboard').style.display = 'none';
+    startApp();
+  });
+}
+
+// 학번 입력 실시간 검증
+// 전화번호 자동 하이픈
+function autoHyphenPhone(el) {
+  var v = el.value.replace(/[^0-9]/g, '');
+  if (v.length <= 3) el.value = v;
+  else if (v.length <= 7) el.value = v.slice(0,3) + '-' + v.slice(3);
+  else el.value = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7,11);
+}
+
+function setupStdnoValidation() {
+  var el = document.getElementById('ob-stdno');
+  if (!el) return;
+  // Random placeholder
+  el.placeholder = String(10000000 + Math.floor(Math.random()*90000000));
+  el.addEventListener('input', function() {
+    var v = el.value.trim();
+    if (v && v.length > 0 && v.length !== 8) {
+      el.style.borderColor = '#ff4466';
+    } else if (v.length === 8 && !/^\d{8}$/.test(v)) {
+      el.style.borderColor = '#ff4466';
+    } else {
+      el.style.borderColor = '';
+    }
+  });
+}
+
+function shakeInput(el, msg) {
+  el.style.borderColor = '#ff4466';
+  el.style.animation = 'shake 0.4s ease';
+  // 에러 메시지
+  var parent = el.parentElement || el.closest('.ob-step');
+  var errEl = parent.querySelector('.ob-err');
+  if (!errEl) {
+    errEl = document.createElement('div');
+    errEl.className = 'ob-err';
+    errEl.style.cssText = 'font-size:11px;color:#ff4466;margin-top:8px;font-weight:700;';
+    el.after(errEl);
+  }
+  errEl.textContent = msg;
+  setTimeout(function() {
+    el.style.animation = '';
+    setTimeout(function() { el.style.borderColor = ''; errEl.textContent = ''; }, 2000);
+  }, 400);
+}
+
+// 엔터키로 다음 단계
+function setupEnterKey() {
+  document.getElementById('onboard').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    if (e.target.tagName === 'BUTTON') return;
+    var step = document.querySelector('.ob-step.active');
+    if (!step) return;
+    var nextBtn = step.querySelector('.ob-btn.primary');
+    if (nextBtn) nextBtn.click();
+  });
+}
+
+// 리버스 스플래시
+function reverseSplash(callback) {
+  var splash = document.getElementById('splash');
+  var canvas = document.getElementById('splash-canvas');
+  var ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  var cx = canvas.width/2, cy = canvas.height/2;
+  splash.style.display = 'flex';
+  splash.style.opacity = '1';
+  document.getElementById('splash-text').style.opacity = '1';
+
+  var colors = ['#00ff88','#00ccff','#aa66ff','#ff6688','#ffcc00','#ff8844'];
+  var particles = [];
+  for (var i = 0; i < 60; i++) {
+    var angle = (i/60)*Math.PI*2;
+    particles.push({
+      sx: cx + (Math.random()-0.5)*100, sy: cy + (Math.random()-0.5)*40,
+      ex: cx + Math.cos(angle)*(300+Math.random()*200), ey: cy + Math.sin(angle)*(200+Math.random()*150),
+      r: 1+Math.random()*2, color: colors[Math.floor(Math.random()*colors.length)],
+      angle: angle,
+    });
+  }
+
+  var start = Date.now(), dur = 1200;
+  function anim() {
+    var t = Math.min((Date.now()-start)/dur, 1);
+    var ease = t*t;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    document.getElementById('splash-text').style.opacity = Math.max(0, 1 - t*2);
+
+    particles.forEach(function(p) {
+      var px = p.sx + (p.ex-p.sx)*ease;
+      var py = p.sy + (p.ey-p.sy)*ease;
+      var spiralAngle = p.angle - ease*Math.PI*2;
+      px += Math.cos(spiralAngle)*ease*50;
+      py += Math.sin(spiralAngle)*ease*50;
+      ctx.beginPath();
+      ctx.arc(px, py, p.r*(1-ease*0.5), 0, Math.PI*2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 1 - ease;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+
+    if (t < 1) {
+      requestAnimationFrame(anim);
+    } else {
+      splash.style.transition = 'opacity 0.3s';
+      splash.style.opacity = '0';
+      setTimeout(function() {
+        splash.style.display = 'none';
+        callback();
+      }, 300);
+    }
+  }
+  anim();
+}
+
+/* ═══════════════════════════════════════
+   DATE ENGINE
+═══════════════════════════════════════ */
+function getSessionDate(week, day) {
+  // week: 1-based, day: 'Mon' or 'Thu'
+  var base = day === 'Mon' ? cfg.dateMon : cfg.dateThu;
+  if (!base) return '';
+  var d = new Date(base + 'T00:00:00');
+  // Correct to actual Monday or Thursday if user entered wrong day
+  var targetDow = day === 'Mon' ? 1 : 4; // Monday=1, Thursday=4
+  var currentDow = d.getDay();
+  if (currentDow !== targetDow) {
+    // Find the nearest target day (prefer going backward)
+    var diff = targetDow - currentDow;
+    if (diff > 3) diff -= 7;
+    if (diff < -3) diff += 7;
+    d.setDate(d.getDate() + diff);
+  }
+  d.setDate(d.getDate() + (week - 1) * 7);
+  return d;
+}
+
+function formatDate(d, dayLabel) {
+  if (!d) return '';
+  var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var dayStr = dayLabel || days[d.getDay()];
+  return d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0') + ' ' + dayStr;
+}
+
+function autoDetectWeek() {
+  if (!cfg.dateMon && !cfg.dateThu) { cfg.currentWeek = 1; cfg.currentDay = 'Mon'; return; }
+  var now = new Date(); now.setHours(23,59,59);
+  var bestWeek = 1, bestDay = 'Mon', bestDiff = Infinity;
+  for (var w = 1; w <= 20; w++) {
+    // Mon first, then Thu — so Mon is preferred when same distance
+    ['Mon','Thu'].forEach(function(day) {
+      var base = day === 'Mon' ? cfg.dateMon : cfg.dateThu;
+      if (!base) return;
+      var sd = new Date(base + 'T00:00:00');
+      sd.setDate(sd.getDate() + (w - 1) * 7);
+      if (isNaN(sd.getTime())) return;
+      var diff = now - sd;
+      if (diff >= 0 && diff < bestDiff) {
+        bestDiff = diff; bestWeek = w; bestDay = day;
+      }
+    });
+  }
+  cfg.currentWeek = bestWeek;
+  cfg.currentDay = bestDay;
+}
+
+function nextSession() {
+  // 16주차 목 → 끝
+  if (cfg.currentWeek >= 16 && cfg.currentDay === 'Thu') {
+    showBigMessage('끝났어 ㅄ아');
+    return;
+  }
+  if (cfg.currentDay === 'Mon') {
+    cfg.currentDay = 'Thu';
+  } else {
+    cfg.currentDay = 'Mon';
+    cfg.currentWeek++;
+  }
+  photos = []; wpTexts = []; wpSelected.clear(); wpTxtSelected.clear();
+  document.getElementById('input-contents').value = '';
+  document.getElementById('input-critic').value = '';
+  saveCfg();
+  refreshAll();
+}
+
+function prevSession() {
+  // 1주차 월 → 없음
+  if (cfg.currentWeek <= 1 && cfg.currentDay === 'Mon') {
+    showBigMessage('없어 이새끼야 ㅋㅋ');
+    return;
+  }
+  if (cfg.currentDay === 'Thu') {
+    cfg.currentDay = 'Mon';
+  } else {
+    cfg.currentDay = 'Thu';
+    cfg.currentWeek = Math.max(1, cfg.currentWeek - 1);
+  }
+  photos = []; wpTexts = []; wpSelected.clear(); wpTxtSelected.clear();
+  document.getElementById('input-contents').value = '';
+  document.getElementById('input-critic').value = '';
+  saveCfg();
+  refreshAll();
+}
+
+function showBigMessage(msg) {
+  var el = document.createElement('div');
+  el.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99999;background:rgba(0,0,0,0.8);';
+  el.innerHTML = '<div style="font-size:48px;font-weight:900;color:#fff;font-family:var(--font);text-align:center;animation:fadeUp .3s ease;">'+msg+'</div>';
+  document.body.appendChild(el);
+  setTimeout(function() {
+    el.style.transition = 'opacity 0.4s';
+    el.style.opacity = '0';
+    setTimeout(function() { el.remove(); }, 400);
+  }, 1000);
+}
+
+/* ═══════════════════════════════════════
+   PHOTOS
+═══════════════════════════════════════ */
+function addPhotoFiles(files) {
+  Array.from(files).forEach(function(f) {
+    if (f.type === 'application/pdf') {
+      addPdfFile(f);
+      return;
+    }
+    if (!f.type.startsWith('image/')) return;
+    addImageFile(f);
+  });
+}
+
+function addImageFile(f) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.getElementById('pdf-photos');
+      var cw = canvas.offsetWidth || 400;
+      var ch = canvas.offsetHeight || 300;
+      var scale = Math.min((cw * 0.4) / img.naturalWidth, (ch * 0.4) / img.naturalHeight, 1);
+      var w = img.naturalWidth * scale;
+      var h = img.naturalHeight * scale;
+      var pos = findEmptySpot(w, h, cw, ch);
+      saveUndo();
+      photos.push({
+        src: e.target.result, x: pos.x, y: pos.y, w: w, h: h,
+        z: wpNextZ++, naturalW: img.naturalWidth, naturalH: img.naturalHeight
+      });
+      renderPhotos(); renderWPCanvas();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+
+function addPdfFile(f) {
+  if (typeof pdfjsLib === 'undefined') {
+    toast('PDF 라이브러리 로딩 중...');
+    return;
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var data = new Uint8Array(e.target.result);
+    pdfjsLib.getDocument({data:data}).promise.then(function(pdf) {
+      toast('📄 PDF ' + pdf.numPages + '페이지 변환 중...');
+      var pagePromises = [];
+      for (var p = 1; p <= pdf.numPages; p++) {
+        pagePromises.push(renderPdfPage(pdf, p));
+      }
+      Promise.all(pagePromises).then(function(images) {
+        saveUndo();
+        var wpCanvas = document.getElementById('pdf-photos');
+        var cw = wpCanvas.offsetWidth || 400;
+        var ch = wpCanvas.offsetHeight || 300;
+        images.forEach(function(imgData) {
+          var img = new Image();
+          img.onload = function() {
+            var scale = Math.min((cw * 0.4) / img.naturalWidth, (ch * 0.4) / img.naturalHeight, 1);
+            var w = img.naturalWidth * scale;
+            var h = img.naturalHeight * scale;
+            var pos = findEmptySpot(w, h, cw, ch);
+            photos.push({
+              src: imgData, x: pos.x, y: pos.y, w: w, h: h,
+              z: wpNextZ++, naturalW: img.naturalWidth, naturalH: img.naturalHeight
+            });
+            renderPhotos(); renderWPCanvas();
+          };
+          img.src = imgData;
+        });
+        toast('📄 PDF ' + images.length + '페이지 추가 완료');
+      });
+    }).catch(function(err) {
+      console.error('PDF 로드 실패:', err);
+      toast('PDF 로드 실패');
+    });
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function renderPdfPage(pdf, pageNum) {
+  return pdf.getPage(pageNum).then(function(page) {
+    var scale = 2; // render at 2x for quality
+    var viewport = page.getViewport({scale:scale});
+    var canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    var ctx = canvas.getContext('2d');
+    return page.render({canvasContext:ctx, viewport:viewport}).promise.then(function() {
+      return canvas.toDataURL('image/png');
+    });
+  });
+}
+
+function findEmptySpot(w, h, cw, ch) {
+  // Simple grid placement
+  var margin = 4;
+  var cols = Math.floor(cw / (w + margin)) || 1;
+  var idx = photos.length;
+  var col = idx % cols;
+  var row = Math.floor(idx / cols);
+  var x = margin + col * (w + margin);
+  var y = margin + row * (h + margin);
+  // Keep within bounds
+  if (x + w > cw) x = Math.max(0, cw - w - margin);
+  if (y + h > ch) y = Math.max(0, ch - h - margin);
+  return {x:x, y:y};
+}
+
+function removePhoto(idx) {
+  photos.splice(idx, 1);
+  wpSelected.delete(idx);
+  // Fix indices in selection
+  var newSel = new Set();
+  wpSelected.forEach(function(i) { if (i < idx) newSel.add(i); else if (i > idx) newSel.add(i-1); });
+  wpSelected = newSel;
+  renderPhotos(); renderWPCanvas();
+}
+
+function renderPhotos() {
+  var zone = document.getElementById('photo-zone');
+  zone.innerHTML = '';
+  if (photos.length === 0) {
+    zone.classList.remove('has-photos');
+    var ph = document.createElement('div');
+    ph.className = 'pz-placeholder';
+    ph.textContent = pickRandom(PHOTO_JOKES);
+    zone.appendChild(ph);
+    return;
+  }
+  zone.classList.add('has-photos');
+  photos.forEach(function(p, i) {
+    var thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    thumb.innerHTML = '<img src="'+p.src+'"><button class="pt-x" onclick="event.stopPropagation();removePhoto('+i+')">✕</button>';
+    zone.appendChild(thumb);
+  });
+  var add = document.createElement('div');
+  add.className = 'photo-add';
+  add.textContent = '+';
+  add.onclick = function() { document.getElementById('pz-file').click(); };
+  zone.appendChild(add);
+}
+
+/* ═══════════════════════════════════════
+   WORK PRODUCT CANVAS
+═══════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   UNDO SYSTEM
+═══════════════════════════════════════ */
+var undoStack = [];
+function saveUndo() {
+  undoStack.push(JSON.stringify({p:photos.map(function(o){var c={};for(var k in o)if(k!=='el')c[k]=o[k];return c;}), t:wpTexts.map(function(o){return Object.assign({},o);})}));
+  if (undoStack.length > 30) undoStack.shift();
+}
+function doUndo() {
+  if (undoStack.length === 0) return;
+  var state = JSON.parse(undoStack.pop());
+  photos = state.p; wpTexts = state.t;
+  wpSelected.clear(); wpTxtSelected.clear();
+  wpNextZ = 1; photos.forEach(function(p){if(p.z>=wpNextZ)wpNextZ=p.z+1;});
+  renderPhotos(); renderWPCanvas();
+  toast('↩ 되돌리기');
+}
+
+/* ═══════════════════════════════════════
+   WP CANVAS RENDER
+═══════════════════════════════════════ */
+var _wpEditingTxt = -1; // text index being edited
+
+function renderWPCanvas() {
+  var canvas = document.getElementById('pdf-photos');
+  Array.from(canvas.querySelectorAll('.wp-img,.wp-txt,.wp-snap-line')).forEach(function(el){el.remove();});
+  
+  // Photos
+  photos.forEach(function(p, i) {
+    var wrap = document.createElement('div');
+    wrap.className = 'wp-img' + (wpSelected.has(i) ? ' selected' : '');
+    wrap.style.cssText = 'left:'+p.x+'px;top:'+p.y+'px;width:'+p.w+'px;height:'+p.h+'px;z-index:'+p.z+';';
+    wrap.dataset.idx = i;
+    wrap.innerHTML = '<img src="'+p.src+'" draggable="false">'
+      +'<div class="wp-handle tl" data-h="tl"></div><div class="wp-handle tr" data-h="tr"></div>'
+      +'<div class="wp-handle bl" data-h="bl"></div><div class="wp-handle br" data-h="br"></div>';
+    wrap.addEventListener('mousedown', function(e){wpItemDown(e,'img',i);});
+    wrap.addEventListener('contextmenu', function(e){
+      e.preventDefault();
+      if (wpSelected.size + wpTxtSelected.size >= 2) { showMultiCtx(e); }
+      else { wpCtxOpen(e,i); }
+    });
+    canvas.appendChild(wrap);
+  });
+  
+  // Texts
+  wpTexts.forEach(function(t, i) {
+    var wrap = document.createElement('div');
+    var isEditing = (_wpEditingTxt === i);
+    wrap.className = 'wp-txt' + (wpTxtSelected.has(i) ? ' selected' : '') + (isEditing ? ' editing' : '');
+    wrap.style.cssText = 'left:'+t.x+'px;top:'+t.y+'px;width:'+t.w+'px;min-height:'+t.h+'px;';
+    wrap.dataset.tidx = i;
+    
+    var inner = document.createElement('div');
+    inner.className = 'wp-txt-inner';
+    inner.style.fontSize = t.fontSize+'pt';
+    inner.style.textAlign = t.align||'left';
+    if(t.bold) inner.style.fontWeight='700';
+    if(t.italic) inner.style.fontStyle='italic';
+    if(t.underline) inner.style.textDecoration='underline';
+    inner.textContent = t.text;
+    wrap.appendChild(inner);
+    
+    // Handles — use DOM creation instead of innerHTML to preserve inner
+    ['tl','tr','bl','br'].forEach(function(h){
+      var hd = document.createElement('div');
+      hd.className = 'wp-handle ' + h;
+      hd.dataset.h = h;
+      wrap.appendChild(hd);
+    });
+    
+    if (isEditing) {
+      inner.contentEditable = true;
+      setTimeout(function(){
+        inner.focus();
+        var r=document.createRange();r.selectNodeContents(inner);
+        var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+      },10);
+      inner.addEventListener('blur', function(){
+        wpTexts[i].text=inner.textContent;
+        _wpEditingTxt=-1;
+        renderWPCanvas();
+      },{once:true});
+    } else {
+      wrap.addEventListener('mousedown', function(e){
+        // If already selected, don't re-render (so dblclick can fire)
+        if (wpTxtSelected.has(i) && !e.target.closest('.wp-handle')) {
+          e.stopPropagation();
+          return; // let dblclick handle it
+        }
+        wpItemDown(e,'txt',i);
+      });
+      wrap.addEventListener('dblclick', function(e){
+        e.stopPropagation();
+        saveUndo();
+        _wpEditingTxt = i;
+        renderWPCanvas();
+      });
+    }
+    wrap.addEventListener('contextmenu', function(e){
+      e.preventDefault();
+      if (wpSelected.size + wpTxtSelected.size >= 2) { showMultiCtx(e); }
+      else { wpTxtCtxOpen(e,i); }
+    });
+    canvas.appendChild(wrap);
+  });
+  
+  // (align bar removed — now in multi-select right-click menu)
+}
+
+/* ═══════════════════════════════════════
+   UNIFIED DRAG/RESIZE
+═══════════════════════════════════════ */
+var _drag = null; // {type:'move'|'resize', handle, originals:[{type,idx,x,y,w,h}], startX, startY}
+
+function wpItemDown(e, type, idx) {
+  e.stopPropagation();
+  if (_wpEditingTxt >= 0) return; // don't interfere with editing
+  
+  var handle = e.target.closest('.wp-handle');
+  var arr = type==='img' ? photos : wpTexts;
+  var selSet = type==='img' ? wpSelected : wpTxtSelected;
+  var otherSet = type==='img' ? wpTxtSelected : wpSelected;
+  
+  // Resize
+  if (handle) {
+    e.preventDefault();
+    saveUndo();
+    var item = arr[idx];
+    _drag = {type:'resize', itemType:type, idx:idx, handle:handle.dataset.h,
+      startX:e.clientX, startY:e.clientY,
+      orig:{x:item.x, y:item.y, w:item.w, h:item.h},
+      ratio: (type==='img') ? item.w/item.h : 0};
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragUp, {once:true});
+    return;
+  }
+  
+  // Select
+  if (e.shiftKey) {
+    if (selSet.has(idx)) selSet.delete(idx); else selSet.add(idx);
+  } else if (!selSet.has(idx)) {
+    wpSelected.clear(); wpTxtSelected.clear();
+    selSet.add(idx);
+  }
+  renderWPCanvas();
+  
+  // Start drag for ALL selected items (photos + texts)
+  saveUndo();
+  var originals = [];
+  wpSelected.forEach(function(i){originals.push({type:'img',idx:i,x:photos[i].x,y:photos[i].y});});
+  wpTxtSelected.forEach(function(i){originals.push({type:'txt',idx:i,x:wpTexts[i].x,y:wpTexts[i].y});});
+  _drag = {type:'move', startX:e.clientX, startY:e.clientY, originals:originals,
+    primaryType:type, primaryIdx:idx};
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragUp, {once:true});
+}
+
+function onDragMove(e) {
+  if (!_drag) return;
+  var scale = getWPScale();
+  var dx = (e.clientX - _drag.startX)/scale;
+  var dy = (e.clientY - _drag.startY)/scale;
+  
+  if (_drag.type === 'move') {
+    _drag.originals.forEach(function(o){
+      var arr = o.type==='img' ? photos : wpTexts;
+      arr[o.idx].x = Math.max(0, o.x+dx);
+      arr[o.idx].y = Math.max(0, o.y+dy);
+    });
+    // Snap primary item
+    var pArr = _drag.primaryType==='img' ? photos : wpTexts;
+    var pItem = pArr[_drag.primaryIdx];
+    snapObject(pItem, _drag.primaryType, _drag.primaryIdx);
+    // Apply snap delta to others
+    var snapDx = pItem.x - ((_drag.originals.find(function(o){return o.type===_drag.primaryType&&o.idx===_drag.primaryIdx;})||{}).x+dx);
+    var snapDy = pItem.y - ((_drag.originals.find(function(o){return o.type===_drag.primaryType&&o.idx===_drag.primaryIdx;})||{}).y+dy);
+    // No need — snap only adjusts primary
+  } else if (_drag.type === 'resize') {
+    var o = _drag.orig;
+    var arr = _drag.itemType==='img' ? photos : wpTexts;
+    var item = arr[_drag.idx];
+    var h = _drag.handle;
+    if (_drag.itemType === 'img') {
+      var ratio = _drag.ratio;
+      if(h==='br'){var nw=Math.max(20,o.w+dx);item.w=nw;item.h=nw/ratio;}
+      else if(h==='bl'){var nw=Math.max(20,o.w-dx);item.w=nw;item.h=nw/ratio;item.x=o.x+o.w-nw;}
+      else if(h==='tr'){var nw=Math.max(20,o.w+dx);item.w=nw;item.h=nw/ratio;item.y=o.y+o.h-item.h;}
+      else if(h==='tl'){var nw=Math.max(20,o.w-dx);item.w=nw;item.h=nw/ratio;item.x=o.x+o.w-nw;item.y=o.y+o.h-item.h;}
+    } else {
+      if(h==='br'){item.w=Math.max(40,o.w+dx);item.h=Math.max(16,o.h+dy);}
+      else if(h==='tr'){item.w=Math.max(40,o.w+dx);item.h=Math.max(16,o.h-dy);item.y=o.y+o.h-item.h;}
+      else if(h==='bl'){item.w=Math.max(40,o.w-dx);item.h=Math.max(16,o.h+dy);item.x=o.x+o.w-item.w;}
+      else if(h==='tl'){item.w=Math.max(40,o.w-dx);item.h=Math.max(16,o.h-dy);item.x=o.x+o.w-item.w;item.y=o.y+o.h-item.h;}
+    }
+    snapResize(item, h, _drag.itemType, _drag.idx);
+  }
+  renderWPCanvas();
+}
+
+function onDragUp() {
+  _drag = null;
+  hideSnapGuides();
+  document.removeEventListener('mousemove', onDragMove);
+}
+
+function getWPScale() {
+  var wrap = document.getElementById('pdf-scale-wrap');
+  if(!wrap) return 1;
+  var t = wrap.style.transform;
+  var m = t.match(/scale\(([\d.]+)\)/);
+  return m ? parseFloat(m[1]) : 1;
+}
+
+/* ═══════════════════════════════════════
+   CANVAS EVENTS
+═══════════════════════════════════════ */
+// Click background → deselect
+document.addEventListener('mousedown', function(e) {
+  if(e.target.closest('.wp-img')||e.target.closest('.wp-txt')||e.target.closest('.wp-ctx'))return;
+  if(e.target.closest('.wp-canvas')){
+    wpSelected.clear(); wpTxtSelected.clear();
+    if(_wpEditingTxt>=0){_wpEditingTxt=-1;}
+    renderWPCanvas();
+  }
+  document.querySelectorAll('.wp-ctx').forEach(function(el){el.classList.remove('show');});
+});
+
+// Canvas background right-click
+document.addEventListener('contextmenu', function(e) {
+  if(!e.target.closest('.wp-canvas')) return;
+  if(e.target.closest('.wp-img')||e.target.closest('.wp-txt')) return;
+  e.preventDefault();
+  var ctx = document.getElementById('wp-canvas-ctx');
+  // Store click position for placing new items
+  var canvas = document.getElementById('pdf-photos');
+  var rect = canvas.getBoundingClientRect();
+  var scale = getWPScale();
+  ctx._cx = (e.clientX - rect.left)/scale;
+  ctx._cy = (e.clientY - rect.top)/scale;
+  ctx.style.left = e.clientX+'px';
+  ctx.style.top = e.clientY+'px';
+  ctx.classList.add('show');
+});
+
+function canvasCtxAction(action) {
+  var ctx = document.getElementById('wp-canvas-ctx');
+  ctx.classList.remove('show');
+  var cx = ctx._cx || 50, cy = ctx._cy || 50;
+  if(action==='addPhoto'){
+    document.getElementById('pz-file').click();
+  } else if(action==='addText'){
+    saveUndo();
+    wpTexts.push({text:'텍스트',x:cx,y:cy,w:100,h:20,fontSize:10,align:'left',bold:false,italic:false,underline:false});
+    renderWPCanvas();
+  }
+}
+
+// Keyboard: Delete, Arrows, Ctrl+Z
+document.addEventListener('keydown', function(e) {
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.isContentEditable) return;
+  
+  // Ctrl+Z → undo
+  if((e.ctrlKey||e.metaKey) && e.key==='z') {
+    e.preventDefault();
+    doUndo();
+    return;
+  }
+  
+  // Delete
+  if((e.key==='Delete'||e.key==='Backspace')&&(wpSelected.size>0||wpTxtSelected.size>0)){
+    e.preventDefault(); saveUndo();
+    Array.from(wpSelected).sort(function(a,b){return b-a;}).forEach(function(i){photos.splice(i,1);});
+    wpSelected.clear();
+    Array.from(wpTxtSelected).sort(function(a,b){return b-a;}).forEach(function(i){wpTexts.splice(i,1);});
+    wpTxtSelected.clear();
+    wpNextZ=1; photos.forEach(function(p){p.z=wpNextZ++;});
+    renderPhotos(); renderWPCanvas();
+  }
+  
+  // Arrow keys
+  var dirs={ArrowLeft:{dx:-1,dy:0},ArrowRight:{dx:1,dy:0},ArrowUp:{dx:0,dy:-1},ArrowDown:{dx:0,dy:1}};
+  if(dirs[e.key]&&(wpSelected.size>0||wpTxtSelected.size>0)){
+    e.preventDefault();
+    if(!e._undoSaved){saveUndo();e._undoSaved=true;}
+    var d=dirs[e.key];
+    wpSelected.forEach(function(i){photos[i].x+=d.dx;photos[i].y+=d.dy;});
+    wpTxtSelected.forEach(function(i){wpTexts[i].x+=d.dx;wpTexts[i].y+=d.dy;});
+    renderWPCanvas();
+  }
+});
+
+// Multi-select context menu
+function showMultiCtx(e) {
+  document.querySelectorAll('.wp-ctx').forEach(function(el){el.classList.remove('show');});
+  var ctx = document.getElementById('wp-multi-ctx');
+  ctx.style.left = e.clientX + 'px';
+  ctx.style.top = e.clientY + 'px';
+  ctx.classList.add('show');
+}
+
+/* ═══════════════════════════════════════
+   CLIPBOARD PASTE (Ctrl+V)
+═══════════════════════════════════════ */
+document.addEventListener('paste', function(e) {
+  // Skip if focused on text inputs (contents, critic, onboarding, settings, or text editing)
+  var tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+  
+  var items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  
+  var hasImage = false;
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i];
+    // Image
+    if (item.type.startsWith('image/')) {
+      hasImage = true;
+      e.preventDefault();
+      var blob = item.getAsFile();
+      if (!blob) continue;
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var img = new Image();
+        img.onload = function() {
+          var canvas = document.getElementById('pdf-photos');
+          var cw = canvas.offsetWidth || 400;
+          var ch = canvas.offsetHeight || 300;
+          var scale = Math.min((cw * 0.4) / img.naturalWidth, (ch * 0.4) / img.naturalHeight, 1);
+          var w = img.naturalWidth * scale;
+          var h = img.naturalHeight * scale;
+          var pos = findEmptySpot(w, h, cw, ch);
+          saveUndo();
+          photos.push({
+            src: ev.target.result, x: pos.x, y: pos.y, w: w, h: h,
+            z: wpNextZ++, naturalW: img.naturalWidth, naturalH: img.naturalHeight
+          });
+          renderPhotos(); renderWPCanvas();
+          toast('📋 클립보드에서 사진 붙여넣기');
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(blob);
+    }
+  }
+  
+  // Text (only if no image was found)
+  if (!hasImage) {
+    var text = e.clipboardData.getData('text/plain');
+    if (text && text.trim()) {
+      e.preventDefault();
+      saveUndo();
+      var canvas = document.getElementById('pdf-photos');
+      var cw = canvas.offsetWidth || 400;
+      wpTexts.push({
+        text: text.trim(),
+        x: 10 + wpTexts.length * 15,
+        y: 10 + wpTexts.length * 15,
+        w: Math.min(cw * 0.5, 300), h: 30,
+        fontSize: 10, align: 'left', bold: false, italic: false, underline: false
+      });
+      renderWPCanvas();
+      toast('📋 클립보드에서 텍스트 붙여넣기');
+    }
+  }
+});
+
+/* ═══════════════════════════════════════
+   SNAP GUIDES (unified for drag + resize)
+═══════════════════════════════════════ */
+var SNAP_DIST = 5;
+
+function getAllItems() {
+  var items = [];
+  photos.forEach(function(p,i){ items.push({obj:p, type:'img', idx:i}); });
+  wpTexts.forEach(function(t,i){ items.push({obj:t, type:'txt', idx:i}); });
+  return items;
+}
+
+function snapObject(target, excludeType, excludeIdx) {
+  var canvas = document.getElementById('pdf-photos');
+  hideSnapGuides();
+  var items = getAllItems().filter(function(it){ return !(it.type===excludeType && it.idx===excludeIdx); });
+  var cx = target.x + target.w/2, cy = target.y + target.h/2;
+  
+  items.forEach(function(it) {
+    var o = it.obj;
+    var ocx = o.x+o.w/2, ocy = o.y+o.h/2;
+    // Centers
+    if (Math.abs(cy-ocy)<SNAP_DIST) { target.y=ocy-target.h/2; addSnapLine('h',ocy,canvas); }
+    if (Math.abs(cx-ocx)<SNAP_DIST) { target.x=ocx-target.w/2; addSnapLine('v',ocx,canvas); }
+    // Edges
+    if (Math.abs(target.y-o.y)<SNAP_DIST) { target.y=o.y; addSnapLine('h',o.y,canvas); }
+    if (Math.abs(target.y+target.h-(o.y+o.h))<SNAP_DIST) { target.y=o.y+o.h-target.h; addSnapLine('h',o.y+o.h,canvas); }
+    if (Math.abs(target.x-o.x)<SNAP_DIST) { target.x=o.x; addSnapLine('v',o.x,canvas); }
+    if (Math.abs(target.x+target.w-(o.x+o.w))<SNAP_DIST) { target.x=o.x+o.w-target.w; addSnapLine('v',o.x+o.w,canvas); }
+    // Adjacent edges (right of target → left of other, etc)
+    if (Math.abs(target.x+target.w-o.x)<SNAP_DIST) { target.x=o.x-target.w; addSnapLine('v',o.x,canvas); }
+    if (Math.abs(target.x-(o.x+o.w))<SNAP_DIST) { target.x=o.x+o.w; addSnapLine('v',o.x+o.w,canvas); }
+    if (Math.abs(target.y+target.h-o.y)<SNAP_DIST) { target.y=o.y-target.h; addSnapLine('h',o.y,canvas); }
+    if (Math.abs(target.y-(o.y+o.h))<SNAP_DIST) { target.y=o.y+o.h; addSnapLine('h',o.y+o.h,canvas); }
+  });
+}
+
+function snapResize(target, handle, excludeType, excludeIdx) {
+  var canvas = document.getElementById('pdf-photos');
+  hideSnapGuides();
+  var items = getAllItems().filter(function(it){ return !(it.type===excludeType && it.idx===excludeIdx); });
+  var edges = { l:target.x, r:target.x+target.w, t:target.y, b:target.y+target.h };
+  
+  items.forEach(function(it) {
+    var o = it.obj;
+    var oe = { l:o.x, r:o.x+o.w, t:o.y, b:o.y+o.h, cx:o.x+o.w/2, cy:o.y+o.h/2 };
+    // Snap right edge
+    if (handle==='br'||handle==='tr') {
+      if (Math.abs(edges.r-oe.r)<SNAP_DIST) { target.w=oe.r-target.x; addSnapLine('v',oe.r,canvas); }
+      if (Math.abs(edges.r-oe.l)<SNAP_DIST) { target.w=oe.l-target.x; addSnapLine('v',oe.l,canvas); }
+    }
+    // Snap left edge
+    if (handle==='bl'||handle==='tl') {
+      if (Math.abs(edges.l-oe.l)<SNAP_DIST) { var d=target.x-oe.l; target.x=oe.l; target.w+=d; addSnapLine('v',oe.l,canvas); }
+      if (Math.abs(edges.l-oe.r)<SNAP_DIST) { var d=target.x-oe.r; target.x=oe.r; target.w+=d; addSnapLine('v',oe.r,canvas); }
+    }
+    // Snap bottom edge
+    if (handle==='br'||handle==='bl') {
+      if (Math.abs(edges.b-oe.b)<SNAP_DIST) { target.h=oe.b-target.y; addSnapLine('h',oe.b,canvas); }
+      if (Math.abs(edges.b-oe.t)<SNAP_DIST) { target.h=oe.t-target.y; addSnapLine('h',oe.t,canvas); }
+    }
+    // Snap top edge
+    if (handle==='tr'||handle==='tl') {
+      if (Math.abs(edges.t-oe.t)<SNAP_DIST) { var d=target.y-oe.t; target.y=oe.t; target.h+=d; addSnapLine('h',oe.t,canvas); }
+      if (Math.abs(edges.t-oe.b)<SNAP_DIST) { var d=target.y-oe.b; target.y=oe.b; target.h+=d; addSnapLine('h',oe.b,canvas); }
+    }
+  });
+}
+
+function addSnapLine(dir, pos, container) {
+  var line = document.createElement('div');
+  line.className = 'wp-snap-line ' + dir;
+  if (dir === 'h') line.style.top = pos + 'px';
+  else line.style.left = pos + 'px';
+  container.appendChild(line);
+}
+
+function hideSnapGuides() {
+  document.querySelectorAll('.wp-snap-line').forEach(function(el){el.remove();});
+}
+
+/* ═══════════════════════════════════════
+   CONTEXT MENU
+═══════════════════════════════════════ */
+function wpCtxOpen(e, idx) {
+  wpCtxTarget = idx;
+  wpSelected.clear();
+  wpSelected.add(idx);
+  renderWPCanvas();
+  var ctx = document.getElementById('wp-ctx');
+  ctx.style.left = e.clientX + 'px';
+  ctx.style.top = e.clientY + 'px';
+  ctx.classList.add('show');
+}
+
+function wpCtxAction(action) {
+  document.getElementById('wp-ctx').classList.remove('show');
+  var i = wpCtxTarget;
+  if (i < 0 || i >= photos.length) return;
+  
+  if (action === 'delete') {
+    removePhoto(i);
+  } else if (action === 'front') {
+    photos[i].z = wpNextZ++;
+    renderWPCanvas();
+  } else if (action === 'back') {
+    photos[i].z = 0;
+    // Rebase others
+    photos.forEach(function(p,j){ if(j!==i) p.z = Math.max(1, p.z); });
+    renderWPCanvas();
+  } else if (action === 'forward') {
+    photos[i].z = Math.min(photos[i].z + 1, wpNextZ);
+    renderWPCanvas();
+  } else if (action === 'backward') {
+    photos[i].z = Math.max(0, photos[i].z - 1);
+    renderWPCanvas();
+  } else if (action === 'crop') {
+    toast('자르기: 추후 업데이트 예정');
+  }
+}
+
+/* ═══════════════════════════════════════
+   ALIGN TOOLBAR
+═══════════════════════════════════════ */
+function multiCtxAction(action) {
+  document.getElementById('wp-multi-ctx').classList.remove('show');
+  if (action === 'delete') {
+    saveUndo();
+    Array.from(wpSelected).sort(function(a,b){return b-a;}).forEach(function(i){photos.splice(i,1);});
+    wpSelected.clear();
+    Array.from(wpTxtSelected).sort(function(a,b){return b-a;}).forEach(function(i){wpTexts.splice(i,1);});
+    wpTxtSelected.clear();
+    wpNextZ=1; photos.forEach(function(p){p.z=wpNextZ++;});
+    renderPhotos(); renderWPCanvas();
+  }
+}
+
+function wpAlign(mode) {
+  document.getElementById('wp-multi-ctx').classList.remove('show');
+  // Collect all selected items (photos + texts) as {obj, type}
+  var items = [];
+  wpSelected.forEach(function(i) { items.push(photos[i]); });
+  wpTxtSelected.forEach(function(i) { items.push(wpTexts[i]); });
+  if (items.length < 2) return;
+
+  if (mode === 'left') {
+    var v = Infinity; items.forEach(function(p){v=Math.min(v,p.x);});
+    items.forEach(function(p){p.x=v;});
+  } else if (mode === 'right') {
+    var v = 0; items.forEach(function(p){v=Math.max(v,p.x+p.w);});
+    items.forEach(function(p){p.x=v-p.w;});
+  } else if (mode === 'top') {
+    var v = Infinity; items.forEach(function(p){v=Math.min(v,p.y);});
+    items.forEach(function(p){p.y=v;});
+  } else if (mode === 'bottom') {
+    var v = 0; items.forEach(function(p){v=Math.max(v,p.y+p.h);});
+    items.forEach(function(p){p.y=v-p.h;});
+  } else if (mode === 'centerH') {
+    var minX=Infinity,maxR=0;
+    items.forEach(function(p){minX=Math.min(minX,p.x);maxR=Math.max(maxR,p.x+p.w);});
+    var c=(minX+maxR)/2; items.forEach(function(p){p.x=c-p.w/2;});
+  } else if (mode === 'centerV') {
+    var minY=Infinity,maxB=0;
+    items.forEach(function(p){minY=Math.min(minY,p.y);maxB=Math.max(maxB,p.y+p.h);});
+    var c=(minY+maxB)/2; items.forEach(function(p){p.y=c-p.h/2;});
+  } else if (mode === 'distH') {
+    items.sort(function(a,b){return a.x-b.x;});
+    var minX=items[0].x, maxR=items[items.length-1].x+items[items.length-1].w;
+    var tw=0; items.forEach(function(p){tw+=p.w;});
+    var gap=(maxR-minX-tw)/(items.length-1); var cx=minX;
+    items.forEach(function(p){p.x=cx;cx+=p.w+gap;});
+  } else if (mode === 'distV') {
+    items.sort(function(a,b){return a.y-b.y;});
+    var minY=items[0].y, maxB=items[items.length-1].y+items[items.length-1].h;
+    var th=0; items.forEach(function(p){th+=p.h;});
+    var gap=(maxB-minY-th)/(items.length-1); var cy=minY;
+    items.forEach(function(p){p.y=cy;cy+=p.h+gap;});
+  }
+  renderWPCanvas();
+}
+
+/* ═══════════════════════════════════════
+   TEXT BOXES
+═══════════════════════════════════════ */
+function addTextBox() {
+  var canvas = document.getElementById('pdf-photos');
+  wpTexts.push({
+    text: '텍스트 입력', x: 10 + wpTexts.length * 20, y: 10 + wpTexts.length * 20,
+    w: 120, h: 24, fontSize: 10, align: 'left', bold: false, italic: false, underline: false
+  });
+  renderWPCanvas();
+  toast('더블클릭으로 편집');
+}
+
+function wpTxtCtxOpen(e, idx) {
+  wpTxtCtxTarget = idx;
+  wpTxtSelected.clear(); wpSelected.clear();
+  wpTxtSelected.add(idx);
+  renderWPCanvas();
+  var ctx = document.getElementById('wp-txt-ctx');
+  ctx.style.left = e.clientX + 'px';
+  ctx.style.top = e.clientY + 'px';
+  ctx.classList.add('show');
+  // Populate current values
+  var t = wpTexts[idx];
+  document.getElementById('txt-ctx-size').value = t.fontSize;
+  document.getElementById('txt-ctx-bold').style.background = t.bold ? 'rgba(0,120,255,0.3)' : 'transparent';
+  document.getElementById('txt-ctx-italic').style.background = t.italic ? 'rgba(0,120,255,0.3)' : 'transparent';
+  document.getElementById('txt-ctx-underline').style.background = t.underline ? 'rgba(0,120,255,0.3)' : 'transparent';
+}
+
+function txtCtxAction(action) {
+  var i = wpTxtCtxTarget;
+  if (i < 0 || i >= wpTexts.length) return;
+  var t = wpTexts[i];
+  if (action === 'edit') {
+    document.getElementById('wp-txt-ctx').classList.remove('show');
+    saveUndo();
+    _wpEditingTxt = i;
+    renderWPCanvas();
+    return;
+  }
+  if (action === 'delete') {
+    document.getElementById('wp-txt-ctx').classList.remove('show');
+    wpTexts.splice(i, 1); wpTxtSelected.delete(i); renderWPCanvas();
+  } else if (action === 'alignL') { t.align = 'left'; renderWPCanvas(); }
+  else if (action === 'alignC') { t.align = 'center'; renderWPCanvas(); }
+  else if (action === 'alignR') { t.align = 'right'; renderWPCanvas(); }
+  else if (action === 'setSize') {
+    var v = parseInt(document.getElementById('txt-ctx-size').value);
+    if (v >= 5 && v <= 72) { t.fontSize = v; renderWPCanvas(); }
+  }
+  else if (action === 'bold') {
+    t.bold = !t.bold;
+    document.getElementById('txt-ctx-bold').style.background = t.bold ? 'rgba(0,120,255,0.3)' : 'transparent';
+    renderWPCanvas();
+  }
+  else if (action === 'italic') {
+    t.italic = !t.italic;
+    document.getElementById('txt-ctx-italic').style.background = t.italic ? 'rgba(0,120,255,0.3)' : 'transparent';
+    renderWPCanvas();
+  }
+  else if (action === 'underline') {
+    t.underline = !t.underline;
+    document.getElementById('txt-ctx-underline').style.background = t.underline ? 'rgba(0,120,255,0.3)' : 'transparent';
+    renderWPCanvas();
+  }
+  else if (action === 'fit') {
+    document.getElementById('wp-txt-ctx').classList.remove('show');
+    // Measure text
+    var measure = document.createElement('div');
+    measure.style.cssText = 'position:absolute;visibility:hidden;white-space:pre-wrap;word-break:break-word;font-family:var(--font);font-size:'+t.fontSize+'pt;font-weight:'+(t.bold?'700':'500')+';font-style:'+(t.italic?'italic':'normal')+';padding:2px;max-width:800px;';
+    measure.textContent = t.text;
+    document.body.appendChild(measure);
+    t.w = measure.offsetWidth + 6;
+    t.h = measure.offsetHeight + 4;
+    document.body.removeChild(measure);
+    renderWPCanvas();
+  }
+}
+
+
+
+/* ═══════════════════════════════════════
+   PDF RENDER
+═══════════════════════════════════════ */
+function renderPDF() {
+  if (!cfg) return;
+  var year = new Date().getFullYear();
+  var wk = pad2(cfg.currentWeek);
+  var sd = getSessionDate(cfg.currentWeek, cfg.currentDay);
+  var profStr = cfg.prof1 ? cfg.prof1 + '교수님' : '';
+  if (cfg.prof2) profStr += ' + ' + cfg.prof2 + '교수님';
+
+  document.getElementById('pdf-course').textContent = year + ' 건축설계' + pad2(cfg.designNo);
+  document.getElementById('pdf-week').textContent = 'WEEK ' + wk;
+  document.getElementById('pdf-class').textContent = cfg.division + ' [' + profStr + ']';
+  document.getElementById('pdf-date').textContent = sd ? formatDate(sd, cfg.currentDay) : '';
+  document.getElementById('pdf-stdno').textContent = cfg.stdno;
+  document.getElementById('pdf-name').textContent = cfg.name;
+  document.getElementById('pdf-mobile').textContent = cfg.phone;
+  document.getElementById('pdf-email').textContent = cfg.email;
+
+  // Photo
+  var photoEl = document.getElementById('pdf-photo');
+  if (cfg.photo) {
+    photoEl.innerHTML = '<img src="' + cfg.photo + '">';
+  } else {
+    photoEl.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt;">프로필 사진</div>';
+  }
+
+  // Work product photos — rendered by canvas engine
+  renderWPCanvas();
+
+  // Text
+  document.getElementById('pdf-contents').textContent = document.getElementById('input-contents').value;
+  document.getElementById('pdf-critic').textContent = document.getElementById('input-critic').value;
+
+  // Scale preview
+  scalePreview();
+}
+
+function scalePreview() {
+  var wrap = document.getElementById('pdf-scale-wrap');
+  var area = document.querySelector('.main-area');
+  if (!area || !wrap) return;
+  var aw = area.clientWidth - 40;
+  var pw = 420 * 3.7795; // mm to px approx
+  var scale = Math.min(1, aw / pw);
+  wrap.style.transform = 'scale(' + scale + ')';
+}
+
+/* ═══════════════════════════════════════
+   ACTIONS
+═══════════════════════════════════════ */
+function dayKo(d) { return d === 'Mon' ? '월' : '목'; }
+
+function getFilename(mode) {
+  if (!cfg) return '';
+  if (mode === 'work') {
+    return cfg.stdno + '_' + pad2(cfg.currentWeek) + '주차_' + dayKo(cfg.currentDay) + '_작업결과물';
+  }
+  return cfg.stdno + '_' + cfg.name + '_' + pad2(cfg.currentWeek) + '주차_' + dayKo(cfg.currentDay) + '_포트폴리오';
+}
+
+var _printMode = 'full'; // 'full' or 'work'
+
+function doPrint(mode) {
+  _printMode = mode || 'full';
+  renderPDF();
+  
+  if (_printMode === 'full') {
+    // Portfolio PDF — same as before
+    var fn = getFilename('full');
+    var origTitle = document.title;
+    var titleEl = document.querySelector('title');
+    titleEl.textContent = fn;
+    document.title = fn;
+    function restore() {
+      titleEl.textContent = origTitle;
+      document.title = origTitle;
+      window.removeEventListener('afterprint', restore);
+    }
+    window.addEventListener('afterprint', restore);
+    showLoading(function() {
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          window.print();
+        });
+      });
+    });
+  } else {
+    // Work product PDF — copy wp-canvas innerHTML to new window → print
+    var fn = getFilename('work');
+    var wpCanvas = document.getElementById('pdf-photos');
+    var srcW = wpCanvas.offsetWidth;
+    var srcH = wpCanvas.offsetHeight;
+    var content = wpCanvas.innerHTML;
+    
+    // Remove selection handles and snap lines from content
+    var temp = document.createElement('div');
+    temp.innerHTML = content;
+    temp.querySelectorAll('.wp-handle,.wp-snap-line').forEach(function(el){el.remove();});
+    // Remove selected/editing classes
+    temp.querySelectorAll('.selected,.editing').forEach(function(el){
+      el.classList.remove('selected','editing');
+    });
+    var cleanContent = temp.innerHTML;
+    
+    showLoading(function() {
+      var win = window.open('', '_blank');
+      if (!win) { toast('팝업이 차단됐어요. 팝업 허용 후 다시 시도해주세요.'); return; }
+      
+      win.document.write('<!DOCTYPE html><html><head><title>' + fn + '</title>');
+      win.document.write('<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">');
+      win.document.write('<style>');
+      win.document.write('@page{size:A3 landscape;margin:10mm;}');
+      win.document.write('*{margin:0;padding:0;box-sizing:border-box;}');
+      win.document.write('body{background:white;display:flex;align-items:center;justify-content:center;width:400mm;height:277mm;}');
+      win.document.write('.wp-wrap{position:relative;width:'+srcW+'px;height:'+srcH+'px;transform-origin:top left;transform:scale(var(--s));overflow:visible;}');
+      win.document.write('.wp-wrap img{display:block;}');
+      win.document.write('.wp-img{position:absolute;box-sizing:border-box;}');
+      win.document.write('.wp-img img{width:100%;height:100%;object-fit:contain;}');
+      win.document.write('.wp-txt{position:absolute;box-sizing:border-box;}');
+      win.document.write('.wp-txt-inner{font-family:"Noto Sans KR",sans-serif;font-weight:500;line-height:1.4;color:#000;white-space:pre-wrap;word-break:break-word;}');
+      win.document.write('.wp-watermark{position:fixed;bottom:12mm;left:12mm;font-family:"Noto Sans KR",sans-serif;font-size:8pt;font-weight:700;color:#999;letter-spacing:0.5px;}');
+      win.document.write('</style>');
+      win.document.write('</head><body>');
+      win.document.write('<div class="wp-wrap" id="wp">' + cleanContent + '</div>');
+      win.document.write('<div class="wp-watermark">INHA UNIV</div>');
+      win.document.write('<script>');
+      win.document.write('var wp=document.getElementById("wp");');
+      win.document.write('var bw=400*3.7795,bh=277*3.7795;');
+      win.document.write('var s=Math.min(bw/'+srcW+',bh/'+srcH+');');
+      win.document.write('wp.style.setProperty("--s",s);');
+      win.document.write('setTimeout(function(){window.print();},500);');
+      win.document.write('<\/script>');
+      win.document.write('</body></html>');
+      win.document.close();
+      
+      toast('📄 작업결과물 인쇄 창이 열렸습니다');
+    });
+  }
+}
+
+function changeProfilePhoto(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    cfg.photo = ev.target.result;
+    saveCfg();
+    renderPDF();
+    toast('📷 프로필 사진 변경됨');
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function changeProfilePhoto(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    cfg.photo = ev.target.result;
+    saveCfg();
+    renderPDF();
+    toast('📷 프사 변경 완료');
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function resetAll() {
+  var msg = '모든 설정이 초기화됩니다. 진행할까요?';
+  var r = prompt(msg + '\n\nㄱㄱ 또는 ㄴㄴ 입력:');
+  if (!r) return;
+  r = r.trim();
+  if (r === 'ㄱㄱ') {
+    localStorage.clear();
+    location.reload();
+  } else {
+    toast('취소됨');
+  }
+}
+
+function openSettings() {
+  if (!cfg) return;
+  var fields = [
+    {label:'이름', key:'name'}, {label:'학번', key:'stdno'},
+    {label:'전화번호', key:'phone'}, {label:'이메일', key:'email'},
+    {label:'건축설계 번호', key:'designNo'}, {label:'분반', key:'division'},
+    {label:'교수1', key:'prof1'}, {label:'교수2', key:'prof2'},
+    {label:'첫수업 월(YYYY-MM-DD)', key:'dateMon'}, {label:'첫수업 목(YYYY-MM-DD)', key:'dateThu'},
+  ];
+  var msg = '⚙️ 기본 설정 변경\n\n';
+  fields.forEach(function(f,i) { msg += (i+1) + '. ' + f.label + ': ' + cfg[f.key] + '\n'; });
+  msg += '\n변경할 번호를 입력하세요 (취소=ESC):';
+  var choice = prompt(msg);
+  if (!choice) return;
+  var idx = parseInt(choice) - 1;
+  if (idx < 0 || idx >= fields.length) return;
+  var f = fields[idx];
+  var val = prompt(f.label + ' 변경:', cfg[f.key]);
+  if (val === null) return;
+  if (f.key === 'designNo') cfg[f.key] = parseInt(val) || cfg[f.key];
+  else cfg[f.key] = val;
+  saveCfg();
+  refreshAll();
+  toast(f.label + ' 변경됨');
+}
+
+/* ═══════════════════════════════════════
+   UTILS
+═══════════════════════════════════════ */
+function pad2(n) { return String(n).padStart(2,'0'); }
+function saveCfg() { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+function loadCfg() {
+  var raw = localStorage.getItem(CFG_KEY);
+  if (!raw) return null;
+  return JSON.parse(raw);
+}
+
+function toast(msg) {
+  var t = document.getElementById('toast-el');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast-el';
+    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--bg2);color:var(--text);padding:10px 24px;border-radius:20px;font-size:12px;border:1px solid var(--border);z-index:9999;opacity:0;transition:all .3s;pointer-events:none;font-family:var(--font);font-weight:700;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._t);
+  t._t = setTimeout(function() { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(10px)'; }, 2500);
+}
+
+function copyFilename(mode) {
+  var fn = getFilename(mode || 'full');
+  navigator.clipboard.writeText(fn).then(function() {
+    toast('📋 파일명 복사됨!');
+  }).catch(function() {
+    var t = document.createElement('textarea');
+    t.value = fn; document.body.appendChild(t);
+    t.select(); document.execCommand('copy');
+    document.body.removeChild(t);
+    toast('📋 파일명 복사됨!');
+  });
+}
+
+function refreshAll() {
+  if (!cfg) return;
+  document.getElementById('sb-title').textContent = '건축설계 ' + pad2(cfg.designNo);
+  document.getElementById('sb-week').textContent = 'WEEK ' + pad2(cfg.currentWeek) + ' ' + cfg.currentDay;
+  // Filename auto update
+  var fnEl = document.getElementById('filename-text');
+  if (fnEl) fnEl.textContent = getFilename('full');
+  var fnElWork = document.getElementById('filename-text-work');
+  if (fnElWork) fnElWork.textContent = getFilename('work');
+  // Placeholders
+  document.getElementById('input-contents').placeholder = pickRandom(CONTENTS_JOKES);
+  document.getElementById('input-critic').placeholder = pickRandom(CRITIC_JOKES);
+  renderPhotos();
+  renderPDF();
+}
+
+/* ═══════════════════════════════════════
+   AI INTEGRATION
+═══════════════════════════════════════ */
+function openAISettings() {
+  document.getElementById('ai-modal').style.display = 'flex';
+  // Load saved
+  if (cfg && cfg.aiProvider) {
+    document.querySelectorAll('.ai-tog').forEach(function(b){b.classList.toggle('active', b.dataset.ai===cfg.aiProvider);});
+  }
+  if (cfg && cfg.aiKey) document.getElementById('ai-key-input').value = cfg.aiKey;
+}
+function closeAIModal() { document.getElementById('ai-modal').style.display = 'none'; }
+function selectAI(provider) {
+  document.querySelectorAll('.ai-tog').forEach(function(b){b.classList.toggle('active', b.dataset.ai===provider);});
+}
+function toggleAIGuide() {
+  var g = document.getElementById('ai-guide');
+  g.style.display = g.style.display === 'none' ? 'block' : 'none';
+}
+function copyGuide() {
+  var text = document.getElementById('ai-guide-text').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    toast('📋 설명서 복사됨!');
+  }).catch(function() {
+    var t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t);
+    t.select(); document.execCommand('copy');
+    document.body.removeChild(t);
+    toast('📋 설명서 복사됨!');
+  });
+}
+function saveAISettings() {
+  var provider = '';
+  document.querySelectorAll('.ai-tog.active').forEach(function(b){provider=b.dataset.ai;});
+  var key = document.getElementById('ai-key-input').value.trim();
+  if (!provider) { toast('AI를 선택해주세요'); return; }
+  if (!key) { toast('API Key를 입력해주세요'); return; }
+  cfg.aiProvider = provider;
+  cfg.aiKey = key;
+  saveCfg();
+  closeAIModal();
+  toast('🤖 ' + provider.toUpperCase() + ' 연동 완료');
+}
+
+function aiRewrite(field) {
+  if (!cfg || !cfg.aiProvider || !cfg.aiKey) {
+    toast('먼저 AI 연동 설정을 해주세요');
+    openAISettings();
+    return;
+  }
+  var textarea = field === 'contents' ? document.getElementById('input-contents') : document.getElementById('input-critic');
+  var text = textarea.value.trim();
+  if (!text) { toast('먼저 글을 작성해주세요'); return; }
+
+  // Get tone and length from dropdowns
+  var toneSuffix = field === 'contents' ? 'c' : 'k';
+  var tone = getDD('tone-' + toneSuffix) || '대학생 고학년';
+  var len = getDD('len-' + toneSuffix) || 'M';
+
+  var toneMap = {
+    '대학생 저학년': '건축학과 1~2학년이 쓰는 쉽고 직관적인 문체로',
+    '대학생 고학년': '건축학과 3~4학년이 쓰는 논리적이고 체계적인 문체로',
+    '석사': '건축 대학원생이 쓰는 학술적이면서 간결한 문체로',
+    '교수님': '건축학 교수가 쓰는 비평적이고 권위있는 문체로',
+    '실무적': '건축 실무자가 쓰는 실용적이고 명확한 문체로',
+    '프로': '건축 포트폴리오 전문가가 쓰는 세련되고 임팩트있는 문체로',
+  };
+  var lenMap = { 'S': '2~3문장 이내로 핵심만', 'M': '4~6문장으로 적절하게', 'L': '8~12문장으로 상세하게' };
+
+  var toneStr = toneMap[tone] || toneMap['대학생 고학년'];
+  var lenStr = lenMap[len] || lenMap['M'];
+
+  var basePrompt = field === 'contents'
+    ? '다음 건축설계 작업 내용을 포트폴리오용으로 정리해줘.'
+    : '다음 건축설계 크리틱 피드백 내용을 포트폴리오용으로 정리해줘.';
+
+  var prompt = basePrompt + '\n' + toneStr + ', ' + lenStr + '.\n한국어로 작성하되, 건축 고유명사(매스, 파사드, 컨셉 등)는 영어를 조합해서.\n\n' + text;
+
+  toast('🤖 AI가 글을 다듬는 중...');
+
+  var apiUrl, headers, body;
+  if (cfg.aiProvider === 'gpt') {
+    apiUrl = 'https://api.openai.com/v1/chat/completions';
+    headers = {'Content-Type':'application/json','Authorization':'Bearer '+cfg.aiKey};
+    body = JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}],max_tokens:500});
+  } else if (cfg.aiProvider === 'gemini') {
+    apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+cfg.aiKey;
+    headers = {'Content-Type':'application/json'};
+    body = JSON.stringify({contents:[{parts:[{text:prompt}]}]});
+  } else if (cfg.aiProvider === 'claude') {
+    apiUrl = 'https://api.anthropic.com/v1/messages';
+    headers = {'Content-Type':'application/json','x-api-key':cfg.aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
+    body = JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,messages:[{role:'user',content:prompt}]});
+  }
+
+  fetch(apiUrl, {method:'POST',headers:headers,body:body})
+    .then(function(r){return r.json();})
+    .then(function(data) {
+      var result = '';
+      try {
+        if (cfg.aiProvider === 'gpt') {
+          result = data.choices[0].message.content;
+        } else if (cfg.aiProvider === 'gemini') {
+          result = data.candidates[0].content.parts[0].text;
+        } else if (cfg.aiProvider === 'claude') {
+          result = data.content[0].text;
+        }
+      } catch(parseErr) {
+        // API returned unexpected structure
+        console.error('AI 응답 파싱 실패:', JSON.stringify(data).slice(0,500));
+        toast('AI 응답 파싱 실패 — 콘솔(F12)에서 확인하세요');
+        return;
+      }
+      if (result && result.trim()) {
+        textarea.value = result.trim();
+        renderPDF();
+        toast('🤖 딸깍 완료!');
+      } else {
+        console.error('AI 응답이 비어있음:', JSON.stringify(data).slice(0,500));
+        // Check for error messages
+        var errMsg = data.error && (data.error.message || data.error.status) || '';
+        toast('AI 응답이 비어있어요' + (errMsg ? ': ' + errMsg : ' — F12 콘솔 확인'));
+      }
+    })
+    .catch(function(err) {
+      toast('AI 호출 실패: ' + err.message);
+    });
+}
+
+function startApp() {
+  document.getElementById('app').classList.add('show');
+  refreshAll();
+  // Live update
+  document.getElementById('input-contents').addEventListener('input', renderPDF);
+  document.getElementById('input-critic').addEventListener('input', renderPDF);
+  window.addEventListener('resize', scalePreview);
+}
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   SPLASH SCREEN — PARTICLE VORTEX
+═══════════════════════════════════════ */
+function runSplash(callback) {
+  var canvas = document.getElementById('splash-canvas');
+  var ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  var cx = canvas.width/2, cy = canvas.height/2;
+  var colors = ['#00ff88','#00ccff','#aa66ff','#ff6688','#ffcc00','#ff8844','#44ccbb','#88aaff'];
+  var particles = [];
+  var startTime = Date.now();
+  var duration = 2800;
+
+  // Create particles in a large ring
+  for (var i = 0; i < 80; i++) {
+    var angle = (i/80) * Math.PI * 2 + Math.random()*0.3;
+    var dist = 300 + Math.random()*200;
+    particles.push({
+      x: cx + Math.cos(angle)*dist,
+      y: cy + Math.sin(angle)*dist,
+      tx: cx + (Math.random()-0.5)*120,
+      ty: cy + (Math.random()-0.5)*40,
+      r: 1.5 + Math.random()*2.5,
+      color: colors[Math.floor(Math.random()*colors.length)],
+      angle: angle,
+      speed: 0.02 + Math.random()*0.03,
+      delay: Math.random()*800,
+    });
+  }
+  // Thin white ring particles
+  for (var j = 0; j < 60; j++) {
+    var a2 = (j/60)*Math.PI*2;
+    var d2 = 200 + Math.random()*50;
+    particles.push({
+      x: cx + Math.cos(a2)*d2,
+      y: cy + Math.sin(a2)*d2,
+      tx: cx + Math.cos(a2)*80,
+      ty: cy + Math.sin(a2)*30,
+      r: 0.5 + Math.random()*1,
+      color: 'rgba(255,255,255,' + (0.2+Math.random()*0.3) + ')',
+      angle: a2,
+      speed: 0.015 + Math.random()*0.02,
+      delay: 200 + Math.random()*600,
+      isRing: true,
+    });
+  }
+
+  function animate() {
+    var elapsed = Date.now() - startTime;
+    var progress = Math.min(elapsed/duration, 1);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    particles.forEach(function(p) {
+      var t = Math.max(0, (elapsed - p.delay) / (duration - p.delay));
+      t = Math.min(t, 1);
+      // Ease in-out
+      var ease = t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2;
+      // Spiral inward
+      var spiralAngle = p.angle + ease * Math.PI * 3 * p.speed * 30;
+      var dist = (1 - ease);
+      var px = p.tx + Math.cos(spiralAngle) * dist * 300;
+      var py = p.ty + Math.sin(spiralAngle) * dist * 200;
+      p.x = px; p.y = py;
+
+      ctx.beginPath();
+      ctx.arc(px, py, p.r * (0.5 + ease*0.5), 0, Math.PI*2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.min(1, ease * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // Trail
+      if (!p.isRing && t > 0.1 && t < 0.9) {
+        ctx.beginPath();
+        ctx.arc(px, py, p.r*3, 0, Math.PI*2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = 0.05;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    });
+
+    // Show text after particles converge
+    if (progress > 0.6) {
+      document.getElementById('splash-text').style.opacity = Math.min(1, (progress-0.6)/0.3);
+    }
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      // Hold for a moment then fade
+      setTimeout(function() {
+        var splash = document.getElementById('splash');
+        splash.style.transition = 'opacity 0.6s';
+        splash.style.opacity = '0';
+        setTimeout(function() {
+          splash.style.display = 'none';
+          callback();
+        }, 600);
+      }, 800);
+    }
+  }
+  animate();
+}
+
+/* ═══════════════════════════════════════
+   RUNAWAY BUTTON
+═══════════════════════════════════════ */
+var runawayCount = 0;
+var runawayTaunts = [
+  'ㅋㅋ 이걸 놓치노',
+  '찐막 ㅋㅋ',
+  '야 진짜 못 누르냐',
+  '손가락이 그렇게 굵어?',
+  'ㅋㅋㅋㅋ 불쌍해',
+];
+
+function runawayHover(e) {
+  dodgeButton();
+}
+
+function runawayClick() {
+  if (runawayCount >= 3) {
+    obGo(1);
+    return;
+  }
+  dodgeButton();
+}
+
+function dodgeButton() {
+  if (runawayCount >= 3) return;
+  var btn = document.getElementById('runaway-btn');
+  var taunt = document.getElementById('runaway-taunt');
+  var parent = btn.parentElement;
+  var pw = parent.offsetWidth || 300;
+
+  var rx = Math.random() * (pw - 80);
+  var ry = (Math.random() - 0.5) * 80;
+  btn.style.position = 'absolute';
+  btn.style.left = rx + 'px';
+  btn.style.top = ry + 'px';
+  btn.style.transition = 'left 0.12s, top 0.12s';
+
+  runawayCount++;
+  taunt.textContent = runawayTaunts[Math.min(runawayCount-1, runawayTaunts.length-1)];
+  taunt.style.opacity = '1';
+
+  if (runawayCount >= 3) {
+    setTimeout(function() {
+      btn.style.position = 'relative';
+      btn.style.left = '0';
+      btn.style.top = '0';
+      taunt.textContent = '됐고 이제 시작하자 ㅋㅋ';
+    }, 600);
+  }
+}
+
+/* ═══════════════════════════════════════
+   LOADING SCREEN WITH CURSES
+═══════════════════════════════════════ */
+var LOAD_CURSES = [
+  '야 좀 기다려','뭘 그렇게 급해','ㅈㄱㄴ','렌더링 중이야 시발','조금만 참아봐',
+  '니 컴퓨터가 느린 거야','인내심 좀 키워라','거의 다 됐어 ㅅㅂ','아 존나 오래 걸리네',
+  'PDF가 만들어지고 있다고','하 진짜 느리다','존나 열심히 하는 중','야 좀 쉬어',
+  '커피나 한 잔 타와','이게 공짜인 게 어디야','감사할 줄 알아라','거의 다 왔어 시발',
+  '100% 되면 알려줄게','좀만 더 ㅋㅋ','아직임 ㅋ','야 다 됐다 시발',
+];
+
+function showLoading(callback) {
+  var overlay = document.getElementById('loading-overlay');
+  var pctEl = document.getElementById('load-pct');
+  var curseEl = document.getElementById('load-curse');
+  var barEl = document.getElementById('load-bar');
+  overlay.style.display = 'flex';
+
+  var pct = 0;
+  var curseIdx = 0;
+
+  function tick() {
+    // Random increment
+    var inc = 2 + Math.floor(Math.random()*8);
+    pct = Math.min(100, pct + inc);
+    pctEl.textContent = pct + '%';
+    barEl.style.width = pct + '%';
+
+    // Change curse every ~15%
+    if (pct % 12 < inc || pct >= 100) {
+      curseEl.style.opacity = '0';
+      setTimeout(function() {
+        curseEl.textContent = LOAD_CURSES[curseIdx % LOAD_CURSES.length];
+        curseEl.style.opacity = '1';
+        curseIdx++;
+      }, 150);
+    }
+
+    if (pct >= 100) {
+      setTimeout(function() {
+        curseEl.textContent = '됐다 가져가 ㅋ';
+        setTimeout(function() {
+          overlay.style.display = 'none';
+          pct = 0;
+          pctEl.textContent = '0%';
+          barEl.style.width = '0%';
+          if (callback) callback();
+        }, 800);
+      }, 400);
+    } else {
+      setTimeout(tick, 100 + Math.random()*200);
+    }
+  }
+  setTimeout(tick, 300);
+}
+
+/* ═══════════════════════════════════════
+   INIT WITH SPLASH
+═══════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   DROPDOWN TOGGLES
+═══════════════════════════════════════ */
+function toggleDD(btn) {
+  var list = btn.nextElementSibling;
+  // Close all others
+  document.querySelectorAll('.dd-list.show').forEach(function(l){if(l!==list)l.classList.remove('show');});
+  list.classList.toggle('show');
+}
+function pickDD(item, target) {
+  var list = item.closest('.dd-list');
+  list.querySelectorAll('.dd-item').forEach(function(d){d.classList.remove('sel');});
+  item.classList.add('sel');
+  var btn = list.previousElementSibling;
+  btn.textContent = item.textContent + ' ▾';
+  list.classList.remove('show');
+}
+function getDD(target) {
+  var list = document.querySelector('.dd-list[data-target="'+target+'"]');
+  if(!list) return '';
+  var sel = list.querySelector('.dd-item.sel');
+  return sel ? sel.textContent : '';
+}
+// Close dropdowns on outside click
+document.addEventListener('click',function(e){if(!e.target.closest('.dd-wrap'))document.querySelectorAll('.dd-list.show').forEach(function(l){l.classList.remove('show');});});
+
+/* ═══════════════════════════════════════
+   SECURITY POLICY
+═══════════════════════════════════════ */
+var POLICY_KEY = 'arch-pf-policy-accepted';
+function acceptPolicy() {
+  localStorage.setItem(POLICY_KEY, 'true');
+  var screen = document.getElementById('security-screen');
+  screen.style.transition = 'opacity 0.5s';
+  screen.style.opacity = '0';
+  setTimeout(function(){
+    screen.style.display = 'none';
+    proceedAfterPolicy();
+  }, 500);
+}
+
+function proceedAfterPolicy() {
+  cfg = loadCfg();
+  if (cfg) {
+    showReturningSplash();
+  } else {
+    runSplash(function() {
+      document.getElementById('onboard').style.display = 'flex';
+      initOnboarding();
+      setupEnterKey();
+      setupStdnoValidation();
+    });
+  }
+}
+
+function showReturningSplash() {
+  document.getElementById('onboard').style.display = 'none';
+  var splash = document.getElementById('splash');
+  var canvas = document.getElementById('splash-canvas');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  var cx = canvas.width/2, cy = canvas.height/2;
+  var splashText = document.getElementById('splash-text');
+  splashText.innerHTML = '<span style="background:linear-gradient(135deg,#00ff88,#00ccff,#aa66ff,#ff6688);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">PORTFOLIO GENERATOR</span>'
+    + '<div style="margin-top:24px;display:flex;justify-content:center;"><button class="ob-btn primary" id="return-start-btn" style="font-size:14px;padding:14px 48px;-webkit-text-fill-color:#000;">시작 →</button></div>';
+  splashText.style.opacity = '1';
+  splashText.style.textAlign = 'center';
+
+  var ctx = canvas.getContext('2d');
+  var colors = ['#00ff88','#00ccff','#aa66ff','#ff6688','#ffcc00','#ff8844'];
+  var dots = [];
+  for (var i=0; i<50; i++) dots.push({
+    x:cx+(Math.random()-0.5)*200, y:cy+(Math.random()-0.5)*100,
+    r:1.5+Math.random()*2, c:colors[i%colors.length],
+    vx:(Math.random()-0.5)*0.4, vy:(Math.random()-0.5)*0.4
+  });
+  var _splashRunning = true;
+  function animBg() {
+    if (!_splashRunning) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    dots.forEach(function(d) {
+      d.x += d.vx; d.y += d.vy;
+      if (d.x < cx-200 || d.x > cx+200) d.vx *= -1;
+      if (d.y < cy-100 || d.y > cy+100) d.vy *= -1;
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+      ctx.fillStyle = d.c; ctx.globalAlpha = 0.35; ctx.fill(); ctx.globalAlpha = 1;
+    });
+    requestAnimationFrame(animBg);
+  }
+  animBg();
+
+  document.getElementById('return-start-btn').onclick = function() {
+    _splashRunning = false;
+    splashText.style.transition = 'opacity 0.3s'; splashText.style.opacity = '0';
+    var scatterStart = Date.now(), scatterDur = 800;
+    dots.forEach(function(d) {
+      var angle = Math.atan2(d.y - cy, d.x - cx);
+      d.tx = d.x + Math.cos(angle)*600; d.ty = d.y + Math.sin(angle)*400;
+      d.sx = d.x; d.sy = d.y;
+    });
+    function scatterAnim() {
+      var t = Math.min((Date.now()-scatterStart)/scatterDur, 1);
+      var ease = t*t;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      dots.forEach(function(d) {
+        var px = d.sx + (d.tx-d.sx)*ease;
+        var py = d.sy + (d.ty-d.sy)*ease;
+        ctx.beginPath(); ctx.arc(px, py, d.r*(1-ease*0.5), 0, Math.PI*2);
+        ctx.fillStyle = d.c; ctx.globalAlpha = 1-ease; ctx.fill(); ctx.globalAlpha=1;
+      });
+      if (t < 1) requestAnimationFrame(scatterAnim);
+      else { splash.style.transition='opacity 0.3s'; splash.style.opacity='0';
+        setTimeout(function(){splash.style.display='none';startApp();},300); }
+    }
+    scatterAnim();
+  };
+}
+
+/* ═══════════════════════════════════════
+   INIT — Lee+Partners → Security → Splash
+═══════════════════════════════════════ */
+window.onload = function() {
+  // Lee+Partners intro (2 seconds)
+  var lpIntro = document.getElementById('lp-intro');
+  var lpText = document.getElementById('lp-text');
+  setTimeout(function(){ lpText.style.opacity = '1'; }, 200);
+  setTimeout(function(){ lpText.style.opacity = '0'; }, 1600);
+  setTimeout(function(){
+    lpIntro.style.display = 'none';
+    // Check if policy already accepted
+    if (localStorage.getItem(POLICY_KEY) === 'true') {
+      proceedAfterPolicy();
+    } else {
+      document.getElementById('security-screen').style.display = 'flex';
+    }
+  }, 2400);
+};
+</script>
+</body>
+</html>
